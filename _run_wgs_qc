@@ -526,13 +526,18 @@ try /dataset/hiseq/active/sample-sheets. If it is there, please copy to the run 
 "
          exit 1
       fi
+      echo "trying $SAMPLE_SHEET"
       base=`basename $SAMPLE_SHEET .csv`
       echo $RUN | grep $base > /dev/null 2>&1
       if [ $? != 0 ]; then
-         echo "sorry can't find the sample-sheet for this run under $SEQ_ROOT/$RUN
-try /dataset/hiseq/active/sample-sheets. If it is there, please copy to the run folder $SEQ_ROOT/$RUN
-"
-         exit 1
+         echo "sorry that doesn't look like a sample sheet I can use  - please enter the full path to the sample-sheet"
+         read_answer_with_default ""
+         if [ ! -f "$answer" ]; then
+            echo "\"$answer\" does not appear to be a file - giving up" 
+            exit 1
+         else
+            SAMPLE_SHEET=$answer
+         fi
       fi
    fi
 
