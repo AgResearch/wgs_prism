@@ -1,5 +1,5 @@
 title: "wgs_prism2 Sequence Production and QC Report"
-subtitle: "Run: 230923_A01439_0214_AHGG2WDSX7"
+subtitle: "TBD"
 
 
 custom_logo: "resources/AgR-Colour.jpg"
@@ -9,9 +9,8 @@ custom_logo_url: "https://www.agresearch.co.nz"
 
 report_header_info:
   - Contact E-mail: "ben.perry@agresearch.co.nz"
-  - Application Type: "Illumina TruSeq RNA from FFPE-Derived RNA input"
-  - Sequencing Platform: "NovaSeq 6000"
-  - Sequencing Setup: "2 Lanes @ 2x151 - L001 & L002"
+  - Application Type: "Illumina Sequence QC"
+  - Sequencing Platform: "TBD"
 
 
 ignore_images: false

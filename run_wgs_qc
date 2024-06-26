@@ -2,15 +2,13 @@
 
 function get_pipeline() {
    
-   export WGS_PRISM_BIN=~//wgs_prism2 # TODO Updated on system configuration
+   export WGS_PRISM_BIN=$(pwd) # TODO Updated on system configuration
    cd $WGS_PRISM_BIN
    
-   wgs_version=$1
-
-   echo "running wgs qc pipeline version $wgs_version (press enter to continue)"
+   echo "running wgs qc pipeline(press enter to continue)"
    read answer
-   exec ./_run_wgs_qc -i $wgs_version 
+   exec ./_run_wgs_qc -i 
 
 }
 
-get_pipeline 2.0.0
+get_pipeline 
