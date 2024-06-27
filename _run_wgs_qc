@@ -49,6 +49,11 @@ please give the full name of wgs run you would like to process ( e.g. 210712_A01
             echo "sorry can't find $RUN under $SEQ_ROOT"
             quit
       fi
+
+      if [ -d $SEQ_ROOT/$RUN ]; then
+         break
+      fi
+      
    done
 
    echo "will process $SEQ_ROOT/$RUN"
