@@ -4,8 +4,8 @@ function get_pipeline() {
    
    export WGS_PRISM_BIN=$(pwd) # TODO Updated on system configuration
    cd $WGS_PRISM_BIN
-   
-   echo "running wgs qc pipeline(press enter to continue)"
+   echo "CWD: $WGS_PRISM_BIN"
+   echo "running wgs qc pipeline (press enter to continue)"
    read answer
    exec ./_run_wgs_qc -i 
 
