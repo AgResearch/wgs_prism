@@ -56,8 +56,8 @@ rule run_bclconvert:
         top_unknown = top_unknown_path
     log:
         bclconvert_log
-    singularity:
-        "docker://nfcore/bclconvert:3.9.3"
+    # singularity:
+    #     "docker://nfcore/bclconvert:3.9.3"
     benchmark:
         bclconvert_benchmark
     threads: 36
@@ -66,10 +66,9 @@ rule run_bclconvert:
         time = lambda wildcards, attempt: 480 + ((attempt - 1) * 120),
     shell:
         """
-        
+        export PATH=/agr/persist/apps/bin:$PATH
         # run bcl-convert
         # report version 
-        touch {log}
 
         echo "bcl-convert version in use:"
 
