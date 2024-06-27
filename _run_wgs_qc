@@ -4,8 +4,10 @@
 #
 
 export WGS_PRISM_BIN=$(pwd)
+
 # snakemake variables
-SMK_CONFIG_DIR="config/slurm/legacy"
+SMK_CONFIG_DIR="config/slurm/eRI"
+
 # default walltime for fastqc in minutes
 FASTQC_WALL=120
 
@@ -18,7 +20,6 @@ FASTQC_WALL=120
 # # custom files includes Ag GBS barcode file and potentially others
 # CUSTOM_ADAPTERS_FILES=/dataset/gseq_processing/active/bin/gquery/database/t_BarcodePlates.csv
 # CUSTOM_CONTAMINANTS_FILES=""
-############################
 
 
 function get_run_opts() {
@@ -159,16 +160,13 @@ function read_answer_with_default() {
    if [ $INTERACTIVE == yes ]; then
       read answer
       echo "User response: $answer"
-      echo
       if [ -z "$answer" ]; then
          answer=$@
          echo "Default response: $answer"
-         echo
       fi
    else
       answer=$@
       echo "Default response: $answer"
-      echo
    fi
 }
 
