@@ -37,7 +37,8 @@ function get_run_opts() {
 "
 
    ####### get and check RUN
-   while [ 1 ] ; do
+   while [ 1 ] 
+   do
       echo "
 please give the full name of wgs run you would like to process ( e.g. 210712_A01439_0006_AHC7MJDRXY (novaseq) ):
 
@@ -45,15 +46,17 @@ please give the full name of wgs run you would like to process ( e.g. 210712_A01
       read_answer_with_default $ARGRUN
       RUN=$answer
 
-      if [ -z "$SEQ_ROOT/$RUN" ]; then 
-            echo "sorry can't find $RUN under $SEQ_ROOT"
-            quit
-      fi
+      if [ -z "$SEQ_ROOT/$RUN" ]
+      then 
 
-      if [ -d $SEQ_ROOT/$RUN ]; then
-         break
+         echo "sorry can't find $RUN under $SEQ_ROOT"
+         quit
+      else 
+         if [ -d "$SEQ_ROOT/$RUN" ]
+         then
+            break
+         fi
       fi
-      
    done
 
    echo "will process $SEQ_ROOT/$RUN"
