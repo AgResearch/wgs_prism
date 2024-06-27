@@ -69,7 +69,7 @@ rule run_bclconvert:
         # export PATH=/agr/persist/apps/bin:$PATH # For ERI
         # run bcl-convert
         # report version 
-        # touch {bclconvert_log}
+        touch {bclconvert_log}
         echo "bcl-convert version in use:"
 
         bcl-convert -V 
