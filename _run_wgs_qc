@@ -260,12 +260,11 @@ Checking run is completed (i.e. looking for $SEQ_ROOT/$RUN/RTAComplete.txt).
       exit 1
    fi
 
-   ####### ensure sample sheet used for bclconvert contains header, and includes specification of adapter
-   # (but allow user to customise )
-   #
+   # Gather sample sheet from active 
+   
    if [ ! -f $OUTPUT_ROOT/SampleSheet.csv ]; then
-      echo "Running: cat $SAMPLE_SHEET | $WGS_PRISM_BIN/workflow/scripts/add_sample_sheet_header.py -H  $WGS_PRISM_BIN/resources/sample_sheet_header.csv  > $OUTPUT_ROOT/SampleSheet.csv "
-      cat $SAMPLE_SHEET | $WGS_PRISM_BIN/workflow/scripts/add_sample_sheet_header.py -H  $WGS_PRISM_BIN/resources/sample_sheet_header.csv  > $OUTPUT_ROOT/SampleSheet.csv
+      echo "Copying $SAMPLE_SHEET to $OUTPUT_ROOT/SampleSheet.csv "
+      cp $SAMPLE_SHEET  $OUTPUT_ROOT/SampleSheet.csv
    fi
 
    echo "
