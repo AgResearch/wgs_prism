@@ -264,6 +264,7 @@ Checking run is completed (i.e. looking for $SEQ_ROOT/$RUN/RTAComplete.txt).
    # (but allow user to customise )
    #
    if [ ! -f $OUTPUT_ROOT/SampleSheet.csv ]; then
+      echo "Running: cat $SAMPLE_SHEET | $WGS_PRISM_BIN/workflow/scripts/add_sample_sheet_header.py -H  $WGS_PRISM_BIN/resources/sample_sheet_header.csv  > $OUTPUT_ROOT/SampleSheet.csv "
       cat $SAMPLE_SHEET | $WGS_PRISM_BIN/workflow/scripts/add_sample_sheet_header.py -H  $WGS_PRISM_BIN/resources/sample_sheet_header.csv  > $OUTPUT_ROOT/SampleSheet.csv
    fi
 
