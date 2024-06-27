@@ -6,7 +6,7 @@
 export WGS_PRISM_BIN=$(pwd)
 
 # snakemake variables
-SMK_CONFIG_DIR="config/slurm/eRI"
+SMK_CONFIG_DIR="config/slurm/legacy"
 
 # default walltime for fastqc in minutes
 FASTQC_WALL=120

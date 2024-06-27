@@ -71,7 +71,6 @@ rule downsample_for_QC:
     resources:
         mem_gb = lambda wildcards, attempt: 2 + ((attempt - 1) * 4),
         time = lambda wildcards, attempt: 6 + ((attempt - 1) * 6),
-        partition="compute",
     shell:
         "seqtk sample -s1953 {input.read1} 1000000 | gzip > {output.downed1} 2> {log} "
         "&& "
@@ -96,7 +95,6 @@ rule bbduk_read_trim:
     resources: #TODO Update
         mem_gb = lambda wildcards, attempt: 6 + ((attempt - 1) * 6),
         time = lambda wildcards, attempt: 20 + ((attempt - 1) * 15),
-        partition='compute',
     shell:
         "bbduk.sh "
         "threads={threads} "
@@ -129,7 +127,6 @@ rule bowtie2_SILVA_alignment_read1:
     resources:
         mem_gb = lambda wildcards, attempt: 24 + ((attempt - 1) * 8),
         time = lambda wildcards, attempt: 10 + ((attempt - 1) * 20),
-        partition = "compute"
     shell:
         "bowtie2 "
         "-p {threads} "
@@ -154,7 +151,6 @@ rule bowtie2_SILVA_alignment_read2:
     resources:
         mem_gb = lambda wildcards, attempt: 24 + ((attempt - 1) * 8),
         time = lambda wildcards, attempt: 10 + ((attempt - 1) * 20),
-        partition = "compute"
     shell:
         "bowtie2 "
         "-p {threads} "
@@ -181,7 +177,6 @@ rule kraken2_read_composition_read1:
     resources:
         mem_gb = lambda wildcards, attempt: 714 + ((attempt - 1) * 20),
         time = lambda wildcards, attempt: 45 + ((attempt - 1) * 40),
-        partition = "hugemem"
     shell:
         "kraken2 "
         "--use-names "
@@ -210,7 +205,6 @@ rule kraken2_read_composition_read2:
     resources:
         mem_gb = lambda wildcards, attempt: 714 + ((attempt - 1) * 20),
         time = lambda wildcards, attempt: 45 + ((attempt - 1) * 40),
-        partition = "hugemem"
     shell:
         "kraken2 "
         "--use-names "
@@ -237,7 +231,6 @@ rule fastqc_read1:
     resources:
         mem_gb = lambda wildcards, attempt: 6 + ((attempt - 1) * 2),
         time = lambda wildcards, attempt: 20 + ((attempt - 1) * 15),
-        partition="compute",
     shell:
         "fastqc "
         "-o {fastqc_out_root} "
@@ -258,7 +251,6 @@ rule fastqc_read2:
     resources:
         mem_gb = lambda wildcards, attempt: 6 + ((attempt - 1) * 2),
         time = lambda wildcards, attempt: 20 + ((attempt - 1) * 15),
-        partition="compute",
     shell:
         "fastqc "
         "-o {fastqc_out_root} "
@@ -279,7 +271,6 @@ rule fastqc_filtered_read1:
     resources:
         mem_gb = lambda wildcards, attempt: 6 + ((attempt - 1) * 2),
         time = lambda wildcards, attempt: 20 + ((attempt - 1) * 15),
-        partition="compute",
     shell:
         "fastqc "
         "-o {fastqc_out_root} "
@@ -300,7 +291,6 @@ rule fastqc_filtered_read2:
     resources:
         mem_gb = lambda wildcards, attempt: 6 + ((attempt - 1) * 2),
         time = lambda wildcards, attempt: 20 + ((attempt - 1) * 15),
-        partition="compute",
     shell:
         "fastqc "
         "-o {fastqc_out_root} "
@@ -322,7 +312,6 @@ rule genome_alignment_check_R1:
     resources:
         mem_gb = lambda wildcards, attempt: 8 + ((attempt - 1) * 8),
         time = lambda wildcards, attempt: 10 + ((attempt - 1) * 30),
-        partition = "compute"
     shell:
         "bowtie2 "
         "-p {threads} "
@@ -345,7 +334,6 @@ rule genome_alignment_check_R2:
     resources:
         mem_gb = lambda wildcards, attempt: 8 + ((attempt - 1) * 8),
         time = lambda wildcards, attempt: 10 + ((attempt - 1) * 30),
-        partition = "compute"
     shell:
         "bowtie2 "
         "-p {threads} "
@@ -395,7 +383,6 @@ rule multiQC_report:
     resources:
         mem_gb = lambda wildcards, attempt: 24 + ((attempt - 1) * 2),
         time = lambda wildcards, attempt: 60 + ((attempt - 1) * 15),
-        partition="compute",
     shell:
         "multiqc "
         "-n {multiqc_report_path} "
