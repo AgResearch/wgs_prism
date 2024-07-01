@@ -81,14 +81,5 @@ rule run_bclconvert:
 
         cat {bclconvert_out_path}/Logs/*log >> {log}
 
-        # if [ $? != 0 ]
-        # then
-        #     echo "error: bclconvert of {input.sample_sheet} - returned an error code."
-        #     exit 1
-        # else
-        #     touch {output.fastq_complete}
-        #     exit 0
-        # fi
-        
         """
         
