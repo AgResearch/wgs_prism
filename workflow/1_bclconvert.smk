@@ -76,7 +76,7 @@ rule run_bclconvert:
 
         echo
 
-        bcl-convert --force --bcl-input-directory {input.run_in} --sample-sheet {input.sample_sheet} --output-directory {output.bclconvert_out} > {log} 2>&1
+        bcl-convert --force --bcl-input-directory {input.run_in} --sample-sheet {input.sample_sheet} --output-directory {output.bclconvert_out} 2>&1 | tee -a {log} 
 
         cat {bclconvert_out_path}/Logs/*log >> {log}
 
