@@ -43,7 +43,7 @@ bclconvert_benchmark = os.path.join(bclconvert_out_root, "benchmarks/run_bclconv
 rule targets:
     input:
         fastq_complete_path,
-        top_unknown_path
+        # top_unknown_path
 
 
 rule run_bclconvert:
