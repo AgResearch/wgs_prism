@@ -61,7 +61,6 @@ rule run_fastqc:
         fastqc_benchmark
     threads: 12
     resources:
-        partition = "inv-blade-g8,inv-blade-g8-fast,inv-iranui,inv-iranui-fast,inv-bigmem,inv-bigmem-fast",
         mem_gb = lambda wildcards, attempt: 8 + ((attempt - 1) * 32),
         time = lambda wildcards, attempt: 120 + ((attempt - 1) * 120),
     shell:
