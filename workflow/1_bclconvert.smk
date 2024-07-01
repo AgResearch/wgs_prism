@@ -53,7 +53,7 @@ rule run_bclconvert:
     output:
         bclconvert_out = directory(bclconvert_out_path),
         fastq_complete = fastq_complete_path,
-        top_unknown = top_unknown_path
+        # top_unknown = top_unknown_path
     log:
         bclconvert_log
     singularity:
