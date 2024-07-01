@@ -16,7 +16,7 @@ default-resources:
   - partition=compute
   - time=120
   - mem_gb=48
-restart-times: 3
+restart-times: 0
 local-cores: 2
 latency-wait: 6000
 jobs: 150
