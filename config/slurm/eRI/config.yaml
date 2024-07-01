@@ -27,7 +27,7 @@ printshellcmds: False
 scheduler: greedy
 use-conda: True
 use-singularity: True
-#singularity-args: "--bind /mnt/gpfs/persist/legacy_datasets"
+singularity-args: "--bind /mnt/gpfs/persist/datasets:/datasets,/mnt/gpfs/persist/projects:/projects,/mnt/gpfs/scratch/projects:/scratch"
 reason: True
 conda-frontend: conda
 #rerun-trigger: mtime
