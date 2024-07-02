@@ -133,12 +133,14 @@ $OUTPUT_ROOT/SampleSheet/bclconvert
    else
       echo "found fastq.gz data: "
       ls -lR $OUTPUT_ROOT/SampleSheet/bclconvert | grep "fastq.gz"
+      echo
 
    fi
 
 
    ####### check whether we can find lane q/c landmark - if not confirm 
    echo "checking for MultiQC summary report ... "
+   echo
 
    ls $OUTPUT_ROOT/SampleSheet/multiqc/*.multiqc.html  > /dev/null 2>&1
    if [ $? != 0 ]; then 
@@ -225,12 +227,6 @@ Usage :\n
 
 
 function run_bclconvert() {
-
-   # Depricated test, bcl-convert now run on nodes
-   # if [ $HOSTNAME != $BCLCONVERT_NODE ]; then
-   #    echo "Sorry you need to be logged on to iramohio-01 to run bclconvert."
-   #    exit 1
-   # fi
 
    echo "
 
@@ -424,6 +420,29 @@ Finding sequence files.
       exit 1
    fi  
 
+### lane QC ###
+      echo "
+About to run detailed sequencing run QC using:
+
+snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN 
+
+OK ? (y/n, default=y):
+"
+
+   read_answer_with_default  y
+   if [ $answer != "y" ]; then
+      echo "OK quitting."
+      exit 1
+   fi
+   echo "
+Starting Run QC...
+"
+   echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
+   source activate snakemake
+   snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN  | tee $OUTPUT_ROOT/logs/run_QC.smk.log
+   conda deactivate
+
+
 ### fastqc rule ###
 
       echo "
@@ -472,6 +491,13 @@ Starting MultiQC...
    snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/3_multiQC.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN | tee $OUTPUT_ROOT/logs/multiqc.smk.log
    conda deactivate
 
+
+echo "
+Run QC completed... $(date)
+Results: $OUTPUT_ROOT
+Questions: ben.perry@agresearch.co.nz
+
+"
 }
 
 
