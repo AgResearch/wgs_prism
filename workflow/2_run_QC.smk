@@ -188,7 +188,7 @@ rule kraken2_read_composition_read1:
         "--report {output.k2Report_R1} "
         "--report-minimizer-data "
         "--output {output.k2Output} "
-        "{input.filtered_read1} "
+        "{input.bbdukRead1} "
         "2>&1 | tee {log} "
 
 
@@ -216,7 +216,7 @@ rule kraken2_read_composition_read2:
         "--report {output.k2Report_R2} "
         "--report-minimizer-data "
         "--output {output.k2Output} "
-        " {input.filtered_read2} "
+        " {input.bbdukRead2} "
         "2>&1 | tee {log} "
 
 
