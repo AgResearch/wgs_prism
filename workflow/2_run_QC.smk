@@ -50,7 +50,7 @@ wildcard_constraints: sample = "(?!Undetermined).+"
 
 # FIDs is used in expands for multiQC report
 fastqc_in_root = os.path.join(OUT_ROOT, "bclconvert")
-(FIDs,) = glob_wildcards( os.path.join(fastqc_in_root, "{sample,(?!Undetermined).*}.fastq.gz") )
+(FIDs,) = glob_wildcards( os.path.join(fastqc_in_root, "{sample,(?!Undetermined).*}_R1_001.fastq.gz") )
 
 
 rule default:
