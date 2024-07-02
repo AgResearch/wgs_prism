@@ -30,10 +30,10 @@ module_order:
       path_filters: 
         - "*.DS.R*.bowtie2.log"
   - fastqc:
-      name: "FastQC of bbduk Trimmed and SILVA Filtered Reads"
+      name: "FastQC of bbduk Adapter and Poly-G Trimmed Reads"
       anchor: "fastqc_trimmed"
       path_filters:
-        - "*bbduk_silva_fastqc*"
+        - "*bbduk_fastqc*"
   - bowtie2:
       name: "Bowtie2 Alignment to GRCh38"
       anchor: "GRCh38"
