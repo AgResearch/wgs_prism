@@ -162,6 +162,7 @@ rule bowtie2_SILVA_alignment_read2:
         "1> /dev/null "
         "2> {output.bowtie2_R2} "
 
+kraken2_index = config['kraken2_index']
 
 rule kraken2_read_composition_read1:
     input:
@@ -182,7 +183,7 @@ rule kraken2_read_composition_read1:
     shell:
         "kraken2 "
         "--use-names "
-        "--db /datasets/2024-kraken2-indices/k2_nt_20231129 " # TODO parameterize in config
+        "--db {kraken2_index} " 
         "-t {threads} "
         "--report {output.k2Report_R1} "
         "--report-minimizer-data "
@@ -210,7 +211,7 @@ rule kraken2_read_composition_read2:
     shell:
         "kraken2 "
         "--use-names "
-        "--db /datasets/2024-kraken2-indices/k2_nt_20231129 " # TODO parameterize in config
+        "--db {kraken2_index} " 
         "-t {threads} "
         "--report {output.k2Report_R2} "
         "--report-minimizer-data "
@@ -365,8 +366,8 @@ rule multiQC_report:
         bowtie2_R1 = expand(os.path.join(OUT_ROOT, "02_SILVA", "{samples}.DS.R1.bowtie2.log"), samples = FIDs),
         bowtie2_R2 = expand(os.path.join(OUT_ROOT, "02_SILVA", "{samples}.DS.R2.bowtie2.log"), samples = FIDs),
 
-        # kraken2_R1 = expand("results/03_kraken2/{samples}.DS.R1.nt.report.kraken2", samples = FIDs),
-        # kraken2_R2 = expand("results/03_kraken2/{samples}.DS.R2.nt.report.kraken2", samples = FIDs),
+        kraken2_R1 = expand(os.path.join(OUT_ROOT, "03_kraken2", "{samples}.DS.R1.nt.report.kraken2"), samples = FIDs),
+        kraken2_R2 = expand(os.path.join(OUT_ROOT, "03_kraken2", "{samples}.DS.R2.nt.report.kraken2"), samples = FIDs),
 
         bowtie2_genome_R1 = expand(os.path.join(OUT_ROOT, "02_REF", "{samples}.DS.genome_alignment.bowtie2.R1.log"), samples = FIDs),
         bowtie2_genome_R2 = expand(os.path.join(OUT_ROOT, "02_REF", "{samples}.DS.genome_alignment.bowtie2.R2.log"), samples = FIDs),
@@ -403,8 +404,8 @@ rule multiQC_report:
         "{input.fastqc_filtered_read2} "
         "{input.bowtie2_R1} "
         "{input.bowtie2_R2} "
-        # "{input.kraken2_R1} "
-        # "{input.kraken2_R2} "
+        "{input.kraken2_R1} "
+        "{input.kraken2_R2} "
         "{input.bowtie2_genome_R1} "
         "{input.bowtie2_genome_R2} "
         "2>&1 | tee {log}"
