@@ -30,6 +30,10 @@ bclconvert_out_path = os.path.join(OUT_ROOT, "bclconvert")
 bclconvert_reports = os.path.join(OUT_ROOT, "bclconvert/Reports")
 
 
+multiqc_report_file = RUN + ".multiqc.html"
+multiqc_report_path = os.path.join(OUT_ROOT, multiqc_report_file)
+
+
 onstart:
     print(f"Working directory: {os.getcwd()}")
     print("TOOLS: ")
@@ -51,7 +55,7 @@ fastqc_in_root = os.path.join(OUT_ROOT, "bclconvert")
 
 rule default:
     input:
-        "results/Sequence_Production_and_QC_Report.multiqc.html",
+        multiqc_report_path,
 
 
 rule downsample_for_QC:
@@ -342,8 +346,6 @@ rule genome_alignment_check_R2:
         "1> /dev/null "
         "2> {output.bowtie2_genome} "
 
-multiqc_report_file = RUN + ".multiqc.html"
-multiqc_report_path = os.path.join(OUT_ROOT, multiqc_report_file)
 
 rule multiQC_report:
     input:
