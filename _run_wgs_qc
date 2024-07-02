@@ -430,17 +430,30 @@ OK ? (y/n, default=y):
 "
 
    read_answer_with_default  y
-   if [ $answer != "y" ]; then
-      echo "OK quitting."
-      exit 1
-   fi
-   echo "
+   if [ $answer == "y" ]; then
+      echo "
 Starting Run QC...
 "
-   echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
-   source activate snakemake
-   snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN  | tee $OUTPUT_ROOT/logs/run_QC.smk.log
-   conda deactivate
+      echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
+      
+      source activate snakemake
+      snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN  | tee $OUTPUT_ROOT/logs/run_QC.smk.log
+      conda deactivate
+
+      echo "
+Run QC completed... $(date)
+Results: $OUTPUT_ROOT
+Questions: ben.perry@agresearch.co.nz
+
+"
+      exit 0
+   else
+      echo "
+Skipping detailed QC report...
+"
+      echo
+   fi
+
 
 
 ### fastqc rule ###
