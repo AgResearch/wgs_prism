@@ -179,7 +179,7 @@ rule kraken2_read_composition_read1:
     threads: 16
     resources:
         mem_gb = lambda wildcards, attempt: 714 + ((attempt - 1) * 20),
-        time = lambda wildcards, attempt: 25 + ((attempt - 1) * 40),
+        time = lambda wildcards, attempt: 35 + ((attempt - 1) * 40),
         partition = "hugemem",
     shell:
         "kraken2 "
@@ -208,7 +208,7 @@ rule kraken2_read_composition_read2:
     threads: 16
     resources:
         mem_gb = lambda wildcards, attempt: 714 + ((attempt - 1) * 20),
-        time = lambda wildcards, attempt: 25 + ((attempt - 1) * 40),
+        time = lambda wildcards, attempt: 35 + ((attempt - 1) * 40),
         partition = "hugemem",
     shell:
         "kraken2 "
