@@ -4,6 +4,7 @@ postprocessing_root: "/dataset/2024_illumina_sequencing_d/scratch/postprocessing
 human_genome_index: "/scratch/2023-bjp-sandbox/wgs_prism2/resources/GRCh38"
 kraken2_index: "/datasets/2024-kraken2-indices/k2_nt_20231129"
 
+
 ## bclconvert configuration; passed via --config in practise ##
 # 
 
@@ -20,11 +21,14 @@ fastqc_walltime: "4320"
 ## sourmash configuration
 #
 
+
 ## multiQC configuration ##
 #
 multiqc_config: "resources/multiQC_config.yaml"
 
+
 ### Possibly Depracated Options with Change to Objects ###
+
 
 # These will be overridden by parameters passed on the CLI via the --config flag
 # It is recommended that these variables are mapped in the params: and not accessed directly through the config[] dictionary
