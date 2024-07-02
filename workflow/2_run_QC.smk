@@ -367,8 +367,8 @@ rule multiQC_report:
         # kraken2_R1 = expand("results/03_kraken2/{samples}.DS.R1.nt.report.kraken2", samples = FIDs),
         # kraken2_R2 = expand("results/03_kraken2/{samples}.DS.R2.nt.report.kraken2", samples = FIDs),
 
-        # bowtie2_genome_R1 = expand("results/02_REF/{samples}.DS.genome_alignment.bowtie2.R1.log", samples = FIDs),
-        # bowtie2_genome_R2 = expand("results/02_REF/{samples}.DS.genome_alignment.bowtie2.R2.log", samples = FIDs),
+        bowtie2_genome_R1 = expand(os.path.join(OUT_ROOT, "02_REF", "{samples}.DS.genome_alignment.bowtie2.R1.log"), samples = FIDs),
+        bowtie2_genome_R2 = expand(os.path.join(OUT_ROOT, "02_REF", "{samples}.DS.genome_alignment.bowtie2.R2.log"), samples = FIDs),
 
         multiQC_config = "resources/multiQC_config.yaml",
     output:
@@ -404,8 +404,8 @@ rule multiQC_report:
         "{input.bowtie2_R2} "
         # "{input.kraken2_R1} "
         # "{input.kraken2_R2} "
-        # "{input.bowtie2_genome_R1} "
-        # "{input.bowtie2_genome_R2} "
+        "{input.bowtie2_genome_R1} "
+        "{input.bowtie2_genome_R2} "
         "2>&1 | tee {log}"
 
 
