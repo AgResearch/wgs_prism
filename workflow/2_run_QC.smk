@@ -300,6 +300,7 @@ rule fastqc_filtered_read2:
         "-t {threads} "
         "{input.bbdukRead2}"
 
+human_genome_index = config['human_genome_index']
 
 rule genome_alignment_check_R1:
     input:
@@ -317,7 +318,7 @@ rule genome_alignment_check_R1:
     shell:
         "bowtie2 "
         "-p {threads} "
-        "-x resources/GRCh38 "
+        "-x {human_genome_index} "
         "-U {input.bbdukRead1} "
         "1> /dev/null "
         "2> {output.bowtie2_genome} "
@@ -339,7 +340,7 @@ rule genome_alignment_check_R2:
     shell:
         "bowtie2 "
         "-p {threads} "
-        "-x resources/GRCh38 "
+        "-x {human_genome_index} "
         "-U {input.bbdukRead2} "
         "1> /dev/null "
         "2> {output.bowtie2_genome} "

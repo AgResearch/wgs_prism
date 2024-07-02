@@ -1,6 +1,7 @@
 # Default pipeline configurations
 seq_root: "/dataset/2024_illumina_sequencing_d/active"
 postprocessing_root: "/dataset/2024_illumina_sequencing_d/scratch/postprocessing/illumina/novaseq"
+human_genome_index: "/scratch/2023-bjp-sandbox/wgs_prism2/resources/GRCh38"
 
 
 ## bclconvert configuration; passed via --config in practise ##
