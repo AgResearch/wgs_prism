@@ -363,8 +363,8 @@ rule multiQC_report:
         fastqc_filtered_read1 = expand(os.path.join(OUT_ROOT, "fastqc_run", "fastqc", "{samples}_R1_bbduk_fastqc.zip"), samples = FIDs), 
         fastqc_filtered_read2 = expand(os.path.join(OUT_ROOT, "fastqc_run", "fastqc", "{samples}_R2_bbduk_fastqc.zip"), samples = FIDs), 
 
-        # bowtie2_R1 = expand("results/02_SILVA/{samples}.DS.R1.bowtie2.log", samples = FIDs),
-        # bowtie2_R2 = expand("results/02_SILVA/{samples}.DS.R2.bowtie2.log", samples = FIDs),
+        bowtie2_R1 = expand("results/02_SILVA/{samples}.DS.R1.bowtie2.log", samples = FIDs),
+        bowtie2_R2 = expand("results/02_SILVA/{samples}.DS.R2.bowtie2.log", samples = FIDs),
 
         # kraken2_R1 = expand("results/03_kraken2/{samples}.DS.R1.nt.report.kraken2", samples = FIDs),
         # kraken2_R2 = expand("results/03_kraken2/{samples}.DS.R2.nt.report.kraken2", samples = FIDs),
