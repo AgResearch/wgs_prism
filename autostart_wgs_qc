@@ -12,7 +12,7 @@ function read_answer_with_default() {
 function get_opts() {
    help_text="
 usage example (currently run in a screen session) :\n
-autostart_wgs_qc 230307_A01439_0152_AHVWF2DRX2 | tee /dataset/2023_illumina_sequencing_c/scratch/postprocessing/autostart_logs/230623_A01439_0188_AHFFGNDRX3.log \n
+autostart_wgs_qc 230307_A01439_0152_AHVWF2DRX2 | tee /dataset/2024_illumina_sequencing_d/scratch/postprocessing/autostart_logs/230623_A01439_0188_AHFFGNDRX3.log \n
 "
    while getopts ":h" opt; do
    case $opt in
@@ -44,32 +44,16 @@ autostart_wgs_qc 230307_A01439_0152_AHVWF2DRX2 | tee /dataset/2023_illumina_sequ
 
 
 function get_pipeline() {
-   wgs_version=$1
-   RUN=$2 
+   RUN=$1 
 
-   export GBS_PRISM_BIN=/dataset/gseq_processing/active/bin/gbs_prism
-   export WGS_PRISM_BIN=/dataset/gseq_processing/active/bin/wgs_prism
-   export SEQ_PRISMS_BIN=$WGS_PRISM_BIN/seq_prisms
+   export WGS_PRISM_BIN=$(pwd)
 
    cd $WGS_PRISM_BIN
 
-   echo "running wgs qc pipeline version $wgs_version"
-   is_alpha=`echo $wgs_version | grep alpha`
-   if [ ! $is_alpha ]; then 
-      git checkout -q $wgs_version 
-      if [ $? != 0 ]; then
-         echo "unable to checkout pipeline version $wgs_version"
-         exit 1
-      fi
-      echo "running exec ./_run_wgs_qc -r $RUN $wgs_version "
-      send_mail
-      exec ./_run_wgs_qc -r $RUN $wgs_version 
-   else
-      echo "(no checkout for alpha versions, just running in current branch)"
-      echo "running exec ./_run_wgs_qc -r $RUN $wgs_version "
-      send_mail
-      exec ./_run_wgs_qc -r $RUN $wgs_version 
-   fi
+   echo "running wgs qc pipeline."
+   echo "running exec ./_run_wgs_qc -r $RUN "
+   exec ./_run_wgs_qc -r $RUN 
+   
 }
 
 function send_mail() {
@@ -80,13 +64,13 @@ function send_mail() {
 
 function get_run_folder() {
    #try novaseq
-   RUN_FOLDER=/dataset/2023_illumina_sequencing_c/active/$ARGRUN
+   RUN_FOLDER=/dataset/2024_illumina_sequencing_d/active/$ARGRUN
    if [ ! -d $RUN_FOLDER ]; then
       # try iseq
-      RUN_FOLDER=/dataset/hiseq/active/$ARGRUN
+      RUN_FOLDER=/dataset/2024_illumina_sequencing_d/active/$ARGRUN
       if [ ! -d $RUN_FOLDER ]; then 
          # try miseq
-         RUN_FOLDER=/dataset/miseq/active/$ARGRUN
+         RUN_FOLDER=/dataset/2024_illumina_sequencing_d/active/$ARGRUN
          if [ ! -d $RUN_FOLDER ]; then
             echo "Sorry could not find run folder for $ARGRUN ! - giving up"
             exit 1
@@ -124,13 +108,13 @@ function poll_for() {
             echo "(final digest : "
             get_digest $RUN
             echo ")"
-            get_pipeline 1.0.4alpha $RUN
+            get_pipeline $RUN
          else
             echo "found landmark ($landmark) - starting processing"
             echo "(final digest : "
             get_digest $RUN
             echo ")"
-            get_pipeline 1.0.4alpha $RUN
+            get_pipeline $RUN
          fi
       else
          let poll_count=${poll_count}+1

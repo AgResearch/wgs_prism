@@ -1,0 +1,46 @@
+# Default pipeline configurations
+seq_root: "/dataset/2024_illumina_sequencing_d/active"
+postprocessing_root: "/dataset/2024_illumina_sequencing_d/scratch/postprocessing/illumina/novaseq"
+human_genome_index: "/scratch/2023-bjp-sandbox/wgs_prism2/resources/GRCh38"
+kraken2_index: "/datasets/2024-kraken2-indices/k2_nt_20231129"
+
+
+## bclconvert configuration; passed via --config in practise ##
+# 
+
+
+## fastqc configuration defaults; passed via --config in practise ##
+# walltime is in minutes
+fastqc_walltime: "4320"
+
+
+## kraken2 configuration ##
+#
+
+
+## sourmash configuration
+#
+
+
+## multiQC configuration ##
+#
+multiqc_config: "resources/multiQC_config.yaml"
+
+
+### Possibly Depracated Options with Change to Objects ###
+
+
+# These will be overridden by parameters passed on the CLI via the --config flag
+# It is recommended that these variables are mapped in the params: and not accessed directly through the config[] dictionary
+## HPC data organsiation global variables; passed via --config in practise ##
+# RUN must be passed via --config parameter at runtime
+# eg. 231019_A01439_0219_AHNKGFDRX3
+# AKA. $RUN
+RUN: "231005_A01439_0216_AHL7NKDRX3"
+# eg. /dataset/2023_illumina_sequencing_[a-z]/active/$RUN
+# AKA. $SEQ_ROOT
+IN_ROOT: "/dataset/2024_illumina_sequencing_d/active"
+# eg. /datasets/2023_illumina_sequencing_[a-z]/scratch/postprocessing/illumina/novaseq/$RUN
+# AKA. $OUTPUT_ROOT
+# OUTPUT_ROOT must be passed via --config parameter at runtime
+OUT_ROOT: "/dataset/2024_illumina_sequencing_d/scratch/postprocessing/illumina/novaseq/test"
