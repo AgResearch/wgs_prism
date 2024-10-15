@@ -1,6 +1,5 @@
 name: bioconductor
 channels:
-  - defaults
   - conda-forge
   - bioconda
   - r

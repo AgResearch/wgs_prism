@@ -1,6 +1,5 @@
 name: biopython-py27
 channels:
-  - defaults
   - conda-forge
   - bioconda
   - r

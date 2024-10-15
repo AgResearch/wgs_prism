@@ -66,11 +66,11 @@ rule downsample_for_QC:
         downed1 = os.path.join(OUT_ROOT, "00_downsample", "{samples}.DS.R1.fastq.gz"),
         downed2 = os.path.join(OUT_ROOT, "00_downsample", "{samples}.DS.R2.fastq.gz"),
     log:
-        os.path.join(LOG_ROOT, "seqkit.{samples}.log")
+        os.path.join(LOG_ROOT, "seqtk.{samples}.log")
     benchmark:
-        os.path.join(BENCHMARK_ROOT, "seqkit.{samples}.txt")
+        os.path.join(BENCHMARK_ROOT, "seqtk.{samples}.txt")
     conda:
-        "seqtk"
+        "envs/seqtk-1.4.yaml"
     threads: 2
     resources:
         mem_gb = lambda wildcards, attempt: 2 + ((attempt - 1) * 4),
@@ -94,7 +94,7 @@ rule bbduk_read_trim:
     benchmark:
         os.path.join(BENCHMARK_ROOT, "bbduk.{samples}.txt")
     conda:
-        "bbduk"
+        "envs/bbmap-39.01.yaml"
     threads: 8
     resources: #TODO Update
         mem_gb = lambda wildcards, attempt: 6 + ((attempt - 1) * 6),
@@ -125,7 +125,7 @@ rule bowtie2_SILVA_alignment_read1:
     benchmark:
         os.path.join(BENCHMARK_ROOT, "bowtie2_SILVA_alignment_read1.{samples}.txt")
     conda:
-        "bowtie2-2.5.1"
+        "envs/bowtie2-2.5.1.yaml"
     threads: 8
     resources:
         mem_gb = lambda wildcards, attempt: 24 + ((attempt - 1) * 8),
@@ -148,7 +148,7 @@ rule bowtie2_SILVA_alignment_read2:
     benchmark:
         os.path.join(BENCHMARK_ROOT, "bowtie2_SILVA_alignment_read2.{samples}.txt")
     conda:
-        "bowtie2-2.5.1"
+        "envs/bowtie2-2.5.1.yaml"
     threads: 8
     resources:
         mem_gb = lambda wildcards, attempt: 24 + ((attempt - 1) * 8),
@@ -175,7 +175,7 @@ rule kraken2_read_composition_read1:
     benchmark:
         os.path.join(BENCHMARK_ROOT, "kraken2_read1_composition.{samples}.txt"),
     conda:
-        "kraken2"
+        "envs/kraken2-2.1.3.yaml"
     threads: 16
     resources:
         mem_gb = lambda wildcards, attempt: 714 + ((attempt - 1) * 20),
@@ -204,7 +204,7 @@ rule kraken2_read_composition_read2:
     benchmark:
         os.path.join(BENCHMARK_ROOT, "kraken2_read2_composition.{samples}.txt"),
     conda:
-        "kraken2"
+        "envs/kraken2-2.1.3.yaml"
     threads: 16
     resources:
         mem_gb = lambda wildcards, attempt: 714 + ((attempt - 1) * 20),
@@ -231,7 +231,7 @@ rule fastqc_read1:
         html = os.path.join(OUT_ROOT, "fastqc_run", "fastqc", "{samples}_R1_001_fastqc.html"),
         zip = os.path.join(OUT_ROOT, "fastqc_run", "fastqc", "{samples}_R1_001_fastqc.zip"),
     conda:
-        "fastqc-0.12.1"
+        "envs/fastqc-0.12.1.yaml"
     threads: 4
     resources:
         mem_gb = lambda wildcards, attempt: 6 + ((attempt - 1) * 2),
@@ -251,7 +251,7 @@ rule fastqc_read2:
         html = os.path.join(OUT_ROOT, "fastqc_run", "fastqc", "{samples}_R2_001_fastqc.html"),
         zip = os.path.join(OUT_ROOT, "fastqc_run", "fastqc", "{samples}_R2_001_fastqc.zip"),
     conda:
-        "fastqc-0.12.1"
+        "envs/fastqc-0.12.1.yaml"
     threads: 4
     resources:
         mem_gb = lambda wildcards, attempt: 6 + ((attempt - 1) * 2),
@@ -271,7 +271,7 @@ rule fastqc_filtered_read1:
         html = os.path.join(OUT_ROOT, "fastqc_run", "fastqc", "{samples}_R1_bbduk_fastqc.html"),
         zip = os.path.join(OUT_ROOT, "fastqc_run", "fastqc", "{samples}_R1_bbduk_fastqc.zip"),
     conda:
-        "fastqc-0.12.1"
+        "envs/fastqc-0.12.1.yaml"
     threads: 4
     resources:
         mem_gb = lambda wildcards, attempt: 6 + ((attempt - 1) * 2),
@@ -291,7 +291,7 @@ rule fastqc_filtered_read2:
         html = os.path.join(OUT_ROOT, "fastqc_run", "fastqc", "{samples}_R2_bbduk_fastqc.html"),
         zip = os.path.join(OUT_ROOT, "fastqc_run", "fastqc", "{samples}_R2_bbduk_fastqc.zip"),
     conda:
-        "fastqc-0.12.1"
+        "envs/fastqc-0.12.1.yaml"
     threads: 4
     resources:
         mem_gb = lambda wildcards, attempt: 6 + ((attempt - 1) * 2),
@@ -313,7 +313,7 @@ rule genome_alignment_check_R1:
     benchmark:
         os.path.join(BENCHMARK_ROOT, "genome_alignment_check.R1.{samples}.txt"),
     conda:
-        "bowtie2-2.5.1"
+        "envs/bowtie2-2.5.1.yaml"
     threads: 8
     resources:
         mem_gb = lambda wildcards, attempt: 8 + ((attempt - 1) * 8),
@@ -335,7 +335,7 @@ rule genome_alignment_check_R2:
     benchmark:
         os.path.join(BENCHMARK_ROOT, "genome_alignment_check.R2.{samples}.txt"),
     conda:
-        "bowtie2-2.5.1"
+        "envs/bowtie2-2.5.1.yaml"
     threads: 8
     resources:
         mem_gb = lambda wildcards, attempt: 8 + ((attempt - 1) * 8),
@@ -378,7 +378,7 @@ rule multiQC_report:
     output:
         multiQC = multiqc_report_path,
     conda:
-        "multiqc"
+        "envs/multiqc-1.17.yaml"
     log:
         os.path.join(LOG_ROOT, "multiQC_report.log"),
     benchmark:
