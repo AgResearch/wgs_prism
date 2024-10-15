@@ -29,9 +29,6 @@ FASTQC_WALL=120
 
 function get_run_opts() {
 
-   mkdir -p $SEQ_BCLCONVERT_ROOT
-
-
    echo " Running wgs_prism2
 * note that you can paste into your terminal window by clicking your right mouse button
 * at any stage you can press CTRL-C to exit the dialogs
@@ -63,6 +60,7 @@ please give the full name of wgs run you would like to process ( e.g. 210712_A01
    echo "will process $SEQ_ROOT/$RUN"
 
    RUN_TYPE=$(python workflow/scripts/runinfo_to_machinetype.py $SEQ_ROOT/$RUN/RunInfo.xml) 
+   mkdir -p $SEQ_BCLCONVERT_ROOT/$RUN_TYPE
 
 
 ####### find the sample sheet  - e.g. could be HNFW2DRXY.csv or SampleSheet.csv
