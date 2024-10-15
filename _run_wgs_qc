@@ -3,16 +3,21 @@
 # master interactive script for processing a novaseq run through bclconvert 
 #
 
-export WGS_PRISM_BIN=$(pwd)
+WGS_PRISM_BIN=/projects/2023_sequence_production/wgs_prism
+cd $WGS_PRISM_BIN
 
-# snakemake variables
-SMK_CONFIG_DIR="config/slurm/eRI"
+ILLUMINA_PROJECT=2024_illumina_sequencing_g
+
+SMK_CONFIG_DIR=config/slurm/eRI
+
+SEQ_ROOT=/projects/$ILLUMINA_PROJECT/run_data
+SEQ_BCLCONVERT_ROOT=/projects/$ILLUMINA_PROJECT/postprocessing/illumina
+
+OUT_ROOT=""
 
 # default walltime for fastqc in minutes
 FASTQC_WALL=120
 
-### Currently deprecated ###
-# export SEQ_PRISMS_BIN=/dataset/gseq_processing/active/bin/wgs_prism/seq_prisms 
 # export GBS_PRISM_BIN=/dataset/gseq_processing/active/bin/gbs_prism
 # #BCLCONVERT_NODE=invbfopp10.agresearch.co.nz   # iramohio-01
 # ADAPTERS_FILE=/stash/miniconda3/envs/bifo-essential/opt/fastqc-0.11.8/Configuration/adapter_list.txt # use the fastqc one
@@ -24,10 +29,6 @@ FASTQC_WALL=120
 
 function get_run_opts() {
 
-   OUT_ROOT=""
-
-   SEQ_ROOT=/dataset/2024_illumina_sequencing_d/active
-   SEQ_BCLCONVERT_ROOT=/dataset/2024_illumina_sequencing_d/scratch/postprocessing/illumina/novaseq
    mkdir -p $SEQ_BCLCONVERT_ROOT
 
 
@@ -61,6 +62,8 @@ please give the full name of wgs run you would like to process ( e.g. 210712_A01
 
    echo "will process $SEQ_ROOT/$RUN"
 
+   RUN_TYPE=$(python workflow/scripts/runinfo_to_machinetype.py $SEQ_ROOT/$RUN/RunInfo.xml) 
+
 
 ####### find the sample sheet  - e.g. could be HNFW2DRXY.csv or SampleSheet.csv
 
@@ -86,11 +89,12 @@ try /dataset/hiseq/active/sample-sheets. If it is there, please copy to the run 
 
    ######## confirm output folder ###########
    # set up output folder
+
    while [ 1 ]; do
       echo "
 
-please specify the full path to the q/c output folder (or just press ENTER to use default , $SEQ_BCLCONVERT_ROOT/$RUN )"
-      read_answer_with_default $SEQ_BCLCONVERT_ROOT/$RUN
+please specify the full path to the q/c output folder (or just press ENTER to use default , $SEQ_BCLCONVERT_ROOT/$RUN_TYPE/$RUN )"
+      read_answer_with_default $SEQ_BCLCONVERT_ROOT/$RUN_TYPE/$RUN
       NEW_ROOT=$answer
       if [ -d $NEW_ROOT ]; then
          echo "warning - $NEW_ROOT already exists, use anyway ? (y/n, default=y)"
@@ -159,6 +163,7 @@ $OUTPUT_ROOT/SampleSheet/bclconvert
 
 }
 
+
 function send_mail() {
    message="$1"
    echo "sending mail"
@@ -180,6 +185,7 @@ function read_answer_with_default() {
    fi
 }
 
+
 function more_with_default() {
    if [ $INTERACTIVE == yes ]; then
       more $1
@@ -187,6 +193,7 @@ function more_with_default() {
       cat $1
    fi
 }
+
 
 function get_opts() {
    INTERACTIVE=no
@@ -263,49 +270,54 @@ Checking run is completed (i.e. looking for $SEQ_ROOT/$RUN/RTAComplete.txt).
       cp $SAMPLE_SHEET  $OUTPUT_ROOT/SampleSheet.csv
    fi
 
-   echo "
-Will use sample sheet $OUTPUT_ROOT/SampleSheet.csv as follows  -- please review: 
+  echo "
+  Using sample sheet $OUTPUT_ROOT/SampleSheet.csv for bclconvert.
+  Please review and edit this samples sheet making any necessary changes for batch processing. 
 
-***** Some points to note *****
-*
-* The sample sheet has been minimally checked and filtered by $WGS_PRISM_BIN/workflow/scripts/add_sample_sheet_header.py - e.g. setting Adapter1 updated to AdapterRead1.
-* The following common requirements are not checked. (If you need to include these or other settings, just answer "n" to the next prompt, and 
-* manually edit $OUTPUT_ROOT/SampleSheet.csv)
-*
-* - if this is a paired end run, you will need to also add AdapterRead2 setting
-* - if you need to specify more than one adapter, they all go on the same line concatenated with +
-* - you may sometimes need to demultiplex in multiple passes, each with different utilisation of cycles  - e.g.
-* [Settings]
-* OverrideCycles,N1Y150;I10;I10;N1Y150
-* OverrideCycles,Y101;I8N11;I8;Y101,,,,,,,,
-* OverrideCycles,Y151;I8N2;I8;Y151,,,,,,,,
-* OverrideCycles,Y101;I10;I8N2,,,,,,,,
-*
-* - Trimming T-overhang options for the Illumina Stranded mRNA and Illumina Stranded Total RNA workflows
-*   Ref https://support.illumina.com/bulletins/2020/06/trimming-t-overhang-options-for-the-illumina-rna-library-prep-wo.html
-*   But note that Read1StartFromCycle is deprecated, instead use OverrideCycles. For example if RunInfo.xml has 
-*   <Read Number=1 NumCycles=151 IsIndexedRead=N/>
-*   <Read Number=2 NumCycles=10 IsIndexedRead=Y/>
-*   <Read Number=3 NumCycles=10 IsIndexedRead=Y/>
-*   <Read Number=4 NumCycles=151 IsIndexedRead=N/>
-*   Then to trim overhang, use 
-* [Settings]
-* OverrideCycles,N1Y150;I10;I10;N1Y150
-*
-* - UMI demultiplexing : ref https://knowledge.illumina.com/software/on-premises-software/software-on-premises-software-reference_material-list/000007337
-* An example for handling mixed UMI-index reads :  
-* [Settings],,,,,,,,,
-* AdapterRead1,CTGTCTCTTATACACATCT,,,,,,,,
-* AdapterRead2,CTGTCTCTTATACACATCT,,,,,,,,
-* OverrideCycles,Y101;I8U11;I8;Y101,,,,,,,,
-* CreateFastqForIndexReads,1,,,,,,,,
-* TrimUMI,0,,,,,,,,
-*
-* (if the indexes are supplied with N masking for the UMI, remove those)
-*
-*******************************
+  If this is batched with indices of different lengths, you will need to do the following:
 
-"
+  1) Add OverrideCycles options under [Settings] such as,
+  # 151 PE reads with 10bp i5 and no i7 index
+  [Settings]
+  OverrideCycles,Y151;I10;N10;Y151
+  # 101 PE reads with 8bp i5 and i7 indices
+  [Settings]
+  OverrideCycles,Y101;I8N2;I8N2;Y101,,,,,,,,
+  # 151 PE reads with 8 bp indices
+  [Settings]
+  OverrideCycles,Y151;I8N2;I8N2;Y151,,,,,,,,
+  # 101 bp SE read with 10 bp i5 and 8bp i7
+  [Settings]
+  OverrideCycles,Y101;I10;I8N2,,,,,,,,
+
+  2) You will need to remove all samples from the sample sheet which are not part of this batch.
+  In reprocessing of this run (eg. other batches) you will be prompted to modify the original sample sheet again.
+
+
+  If this run requires the removal of T-overhangs:
+
+  [Settings]
+  OverrideCycles,N1Y150;I10;I10;N1Y150
+
+  Ref https://support.illumina.com/bulletins/2020/06/trimming-t-overhang-options-for-the-illumina-rna-library-prep-wo.html
+
+
+  If this run has UMIs which need to be demultiplexed and captured:
+  Note: if the indices in the sample sheet are supplied with N for the UMIs remove those and leave the index sequences.
+
+  # 101 bp PE reads with 12 bp UMI and 8 bp i5 index and 8 bp i7 index
+  [Settings],,,,,,,,,
+  OverrideCycles,Y101;U12I8;I8;Y101,,,,,,,,
+  CreateFastqForIndexReads,1,,,,,,,,
+  TrimUMI,0,,,,,,,,
+  # 101 bp PE reads with 20 bp UMI and 8 bp i7 index
+  [Settings],,,,,,,,,
+  OverrideCycles,Y101;U20;I8;Y101,,,,,,,,
+  CreateFastqForIndexReads,1,,,,,,,,
+  TrimUMI,0,,,,,,,,
+
+  Ref: https://knowledge.illumina.com/software/on-premises-software/software-on-premises-software-reference_material-list/000007337"
+
 
    echo "Press Enter to review sample sheet:"
    read_answer_with_default ""
