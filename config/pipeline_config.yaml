@@ -1,7 +1,7 @@
 # Default pipeline configurations
 seq_root: "/dataset/2024_illumina_sequencing_d/active"
 postprocessing_root: "/dataset/2024_illumina_sequencing_d/scratch/postprocessing/illumina/novaseq"
-human_genome_index: "/scratch/2023-bjp-sandbox/wgs_prism2/resources/GRCh38"
+human_genome_index: "/projects/2023_sequence_production/wgs_prism/resources/GRCh38/GRCh38"
 kraken2_index: "/datasets/2024-kraken2-indices/k2_nt_20231129"
 
 

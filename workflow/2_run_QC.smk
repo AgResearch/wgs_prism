@@ -116,6 +116,7 @@ rule bbduk_read_trim:
         "out2={output.bbdukRead2} "
         "2>&1 | tee {log} "
 
+
 rule bowtie2_SILVA_alignment_read1:
     input:
         bbdukRead1 = os.path.join(OUT_ROOT, "01_readMasking", "{samples}_R1_bbduk.fastq.gz"),
@@ -161,6 +162,7 @@ rule bowtie2_SILVA_alignment_read2:
         "-U {input.bbdukRead2} "
         "1> /dev/null "
         "2> {output.bowtie2_R2} "
+
 
 kraken2_index = config['kraken2_index']
 
@@ -303,6 +305,7 @@ rule fastqc_filtered_read2:
         "-t {threads} "
         "{input.bbdukRead2}"
 
+
 human_genome_index = config['human_genome_index']
 
 rule genome_alignment_check_R1:
@@ -411,6 +414,4 @@ rule multiQC_report:
         "{input.bowtie2_genome_R1} "
         "{input.bowtie2_genome_R2} "
         "2>&1 | tee {log}"
-
-
 
