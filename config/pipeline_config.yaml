@@ -17,8 +17,8 @@ IN_ROOT: "/projects/2024_illumina_sequencing_g/run_data"
 OUT_ROOT: "/projects/2024_illumina_sequencing_g/postprocessing/illumina"
 
 ### Reference Data Locations ###
-human_genome_index: "/projects/2023_sequence_production/wgs_prism/resources/GRCh38"
-kraken2_index: "/datasets/2024-kraken2-indices/k2_nt_20240530"
+human_genome_index: "/projects/2023_sequence_production/wgs_prism/resources/GRCh38/GRCh38"
+kraken2_index: "/datasets/2024-kraken2-indices/k2_nt_20231129"
 
 ### multiQC configuration ###
 multiqc_config: "resources/multiQC_config.yaml"
