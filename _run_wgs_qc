@@ -363,10 +363,8 @@ Starting bclconvert...
 
 "
    echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/1_bclconvert.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
-   source activate snakemake
    export PATH=/usr/bin/bcl-convert:$PATH # TODO move to config
    snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/1_bclconvert.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN > $OUTPUT_ROOT/logs/bclconvert.smk.log
-   conda deactivate
 
    if [ $? != 0 ]
    then
@@ -446,9 +444,7 @@ Starting Run QC...
 "
       echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
       
-      source activate snakemake
       snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN  | tee $OUTPUT_ROOT/logs/run_QC.smk.log
-      conda deactivate
 
       echo "
 Run QC completed... $(date)
@@ -485,9 +481,7 @@ OK ? (y/n, default=y):
 Starting fastqc...
 "
    echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_fastqc.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
-   source activate snakemake
    snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_fastqc.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN | tee $OUTPUT_ROOT/logs/fastqc.smk.log
-   conda deactivate
 
 
 ### multiQC rule ###
@@ -510,9 +504,7 @@ Starting MultiQC...
 
    "
    echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/3_multiQC.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN" 
-   source activate snakemake
    snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/3_multiQC.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN | tee $OUTPUT_ROOT/logs/multiqc.smk.log
-   conda deactivate
 
 
 echo "
@@ -526,3 +518,4 @@ Questions: ben.perry@agresearch.co.nz
 
 get_opts "$@"
 get_run_opts
+
