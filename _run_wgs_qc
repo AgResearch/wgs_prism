@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# master interactive script for processing a novaseq run through bclconvert 
+# master interactive script for processing a novaseq run through bclconvert
 #
 
 WGS_PRISM_BIN=/projects/2023_sequence_production/wgs_prism
@@ -18,25 +18,14 @@ OUT_ROOT=""
 # default walltime for fastqc in minutes
 FASTQC_WALL=120
 
-# export GBS_PRISM_BIN=/dataset/gseq_processing/active/bin/gbs_prism
-# #BCLCONVERT_NODE=invbfopp10.agresearch.co.nz   # iramohio-01
-# ADAPTERS_FILE=/stash/miniconda3/envs/bifo-essential/opt/fastqc-0.11.8/Configuration/adapter_list.txt # use the fastqc one
-# CONTAMINANTS_FILE=/stash/miniconda3/envs/bifo-essential/opt/fastqc-0.11.8/Configuration/contaminant_list.txt  # use the fastqc one
-# # custom files includes Ag GBS barcode file and potentially others
-# CUSTOM_ADAPTERS_FILES=/dataset/gseq_processing/active/bin/gquery/database/t_BarcodePlates.csv
-# CUSTOM_CONTAMINANTS_FILES=""
-
-
-function get_run_opts() {
-
+get_run_opts() {
    echo " Running wgs_prism2
 * note that you can paste into your terminal window by clicking your right mouse button
 * at any stage you can press CTRL-C to exit the dialogs
 "
 
    ####### get and check RUN
-   while [ 1 ] 
-   do
+   while [ 1 ]; do
       echo "
 please give the full name of wgs run you would like to process ( e.g. 210712_A01439_0006_AHC7MJDRXY (novaseq) ):
 
@@ -44,14 +33,12 @@ please give the full name of wgs run you would like to process ( e.g. 210712_A01
       read_answer_with_default $ARGRUN
       RUN=$answer
 
-      if [ -z "$SEQ_ROOT/$RUN" ]
-      then 
+      if [ -z "$SEQ_ROOT/$RUN" ]; then
 
          echo "sorry can't find $RUN under $SEQ_ROOT"
          quit
-      else 
-         if [ -d "$SEQ_ROOT/$RUN" ]
-         then
+      else
+         if [ -d "$SEQ_ROOT/$RUN" ]; then
             break
          fi
       fi
@@ -59,23 +46,22 @@ please give the full name of wgs run you would like to process ( e.g. 210712_A01
 
    echo "will process $SEQ_ROOT/$RUN"
 
-   RUN_TYPE=$(python workflow/scripts/runinfo_to_machinetype.py $SEQ_ROOT/$RUN/RunInfo.xml) 
+   RUN_TYPE=$(python workflow/scripts/runinfo_to_machinetype.py $SEQ_ROOT/$RUN/RunInfo.xml)
    mkdir -p $SEQ_BCLCONVERT_ROOT/$RUN_TYPE
 
-
-####### find the sample sheet  - e.g. could be HNFW2DRXY.csv or SampleSheet.csv
+   ####### find the sample sheet  - e.g. could be HNFW2DRXY.csv or SampleSheet.csv
 
    SAMPLE_SHEET=$SEQ_ROOT/$RUN/SampleSheet.csv
    if [ ! -f $SAMPLE_SHEET ]; then
-      SAMPLE_SHEET=`ls $SEQ_ROOT/$RUN/*.csv 2>/dev/null`  
+      SAMPLE_SHEET=$(ls $SEQ_ROOT/$RUN/*.csv 2>/dev/null)
       if [ $? != 0 ]; then
          echo "sorry can't find the sample-sheet for this run under $SEQ_ROOT/$RUN
 try /dataset/hiseq/active/sample-sheets. If it is there, please copy to the run folder $SEQ_ROOT/$RUN
 "
          exit 1
       fi
-      base=`basename $SAMPLE_SHEET .csv`
-      echo $RUN | grep $base > /dev/null 2>&1
+      base=$(basename $SAMPLE_SHEET .csv)
+      echo $RUN | grep $base >/dev/null 2>&1
       if [ $? != 0 ]; then
          echo "sorry can't find the sample-sheet for this run under $SEQ_ROOT/$RUN
 try /dataset/hiseq/active/sample-sheets. If it is there, please copy to the run folder $SEQ_ROOT/$RUN
@@ -83,7 +69,6 @@ try /dataset/hiseq/active/sample-sheets. If it is there, please copy to the run 
          exit 1
       fi
    fi
-
 
    ######## confirm output folder ###########
    # set up output folder
@@ -110,14 +95,12 @@ please specify the full path to the q/c output folder (or just press ENTER to us
       fi
    done
 
-
-####### check whether we can find sequence data - if not confirm  bclconvert is needed 
+   ####### check whether we can find sequence data - if not confirm  bclconvert is needed
    echo "checking sequence data (looking under  $OUTPUT_ROOT)....
 
 "
-   ls -lR $OUTPUT_ROOT/SampleSheet/bclconvert 2>/dev/null | grep "fastq.gz"   > /dev/null 2>&1 
-   if [ $? != 0 ]
-   then
+   ls -lR $OUTPUT_ROOT/SampleSheet/bclconvert 2>/dev/null | grep "fastq.gz" >/dev/null 2>&1
+   if [ $? != 0 ]; then
       echo "could not find fastq.gz data in $OUTPUT_ROOT/SampleSheet/bclconvert.
 
 if you just want to run downstream q/c, CTRL-C now and create symlinks to your data in:
@@ -125,12 +108,12 @@ if you just want to run downstream q/c, CTRL-C now and create symlinks to your d
 $OUTPUT_ROOT/SampleSheet/bclconvert 
 
 . . . but you probably want to run bclconvert  - OK to run that ? (y/n, default=y)"
-      read_answer_with_default y 
+      read_answer_with_default y
       if [ "$answer" != "y" ]; then
          echo "OK continuing..."
          echo
       else
-         run_bclconvert 
+         run_bclconvert
       fi
    else
       echo "found fastq.gz data: "
@@ -139,13 +122,12 @@ $OUTPUT_ROOT/SampleSheet/bclconvert
 
    fi
 
-
-   ####### check whether we can find lane q/c landmark - if not confirm 
+   ####### check whether we can find lane q/c landmark - if not confirm
    echo "checking for MultiQC summary report ... "
    echo
 
-   ls $OUTPUT_ROOT/SampleSheet/multiqc/*.multiqc.html  > /dev/null 2>&1
-   if [ $? != 0 ]; then 
+   ls $OUTPUT_ROOT/SampleSheet/multiqc/*.multiqc.html >/dev/null 2>&1
+   if [ $? != 0 ]; then
       echo "could not find MultiQC summary report - OK to run lane q/c ? (y/n, default=y)"
       read_answer_with_default y
       if [ "$answer" != "y" ]; then
@@ -161,15 +143,13 @@ $OUTPUT_ROOT/SampleSheet/bclconvert
 
 }
 
-
-function send_mail() {
+send_mail() {
    message="$1"
    echo "sending mail"
    echo "" | mutt -s "$message" vanstijnt , mccullocha, bairdh, perrybe, andersonr, andrewsa, henryh, frenchm, hicklandm
 }
 
-
-function read_answer_with_default() {
+read_answer_with_default() {
    if [ $INTERACTIVE == yes ]; then
       read answer
       echo "User response: $answer"
@@ -183,8 +163,7 @@ function read_answer_with_default() {
    fi
 }
 
-
-function more_with_default() {
+more_with_default() {
    if [ $INTERACTIVE == yes ]; then
       more $1
    else
@@ -192,8 +171,7 @@ function more_with_default() {
    fi
 }
 
-
-function get_opts() {
+get_opts() {
    INTERACTIVE=no
    INTERACTIVE_OPT=""
    ARGRUN=""
@@ -202,36 +180,34 @@ This script is called by run_wgs_qc (or non-interactively by a cron job).
 Usage :\n
 "
    while getopts ":hir:" opt; do
-   case $opt in
-       h)
+      case $opt in
+      h)
          echo -e $help_text
          exit 0
          ;;
-       i)
+      i)
          INTERACTIVE=yes
          INTERACTIVE_OPT="-i"
          ;;
-       r)
+      r)
          ARGRUN=$OPTARG
          ;;
-       \?)
+      \?)
          echo "Invalid option: -$OPTARG" >&2
          exit 1
          ;;
-       :)
+      :)
          echo "Option -$OPTARG requires an argument." >&2
          exit 1
          ;;
-     esac
+      esac
    done
 
-   shift $((OPTIND-1))
+   shift $((OPTIND - 1))
 
 }
 
-
-
-function run_bclconvert() {
+run_bclconvert() {
 
    echo "
 
@@ -249,7 +225,7 @@ Checking run is completed (i.e. looking for $SEQ_ROOT/$RUN/RTAComplete.txt).
       fi
    fi
 
-   bclconvert_phrase="" # not currently used - previously used to pass in bcl2fastq options 
+   bclconvert_phrase="" # not currently used - previously used to pass in bcl2fastq options
    samplesheet_to_fastqnames_phrase=""
 
    # set up for bclconvert run
@@ -261,14 +237,14 @@ Checking run is completed (i.e. looking for $SEQ_ROOT/$RUN/RTAComplete.txt).
       exit 1
    fi
 
-   # Gather sample sheet from active 
-   
+   # Gather sample sheet from active
+
    if [ ! -f $OUTPUT_ROOT/SampleSheet.csv ]; then
       echo "Copying $SAMPLE_SHEET to $OUTPUT_ROOT/SampleSheet.csv "
-      cp $SAMPLE_SHEET  $OUTPUT_ROOT/SampleSheet.csv
+      cp $SAMPLE_SHEET $OUTPUT_ROOT/SampleSheet.csv
    fi
 
-  echo "
+   echo "
   Using sample sheet $OUTPUT_ROOT/SampleSheet.csv for bclconvert.
   Please review and edit this samples sheet making any necessary changes for batch processing. 
 
@@ -316,7 +292,6 @@ Checking run is completed (i.e. looking for $SEQ_ROOT/$RUN/RTAComplete.txt).
 
   Ref: https://knowledge.illumina.com/software/on-premises-software/software-on-premises-software-reference_material-list/000007337"
 
-
    echo "Press Enter to review sample sheet:"
    read_answer_with_default ""
 
@@ -331,9 +306,8 @@ OK quitting.
 
 (please edit $OUTPUT_ROOT/SampleSheet.csv and try again)"
       exit 1
-   fi 
+   fi
 
-   
    ###### ensure output folder does not exist
    if [ -d $OUTPUT_ROOT/SampleSheet/bclconvert ]; then
       echo "
@@ -344,7 +318,6 @@ error: $OUTPUT_ROOT/SampleSheet/bclconvert already exists - please clean up and 
    # remove the make target if it exists
    rm -f $OUTPUT_ROOT/SampleSheet/SampleSheet.csv.bclconvert
 
-
    echo "
 About to run bclconvert using:
 
@@ -353,7 +326,7 @@ snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/1_bclconvert.smk --conf
 OK ? (y/n, default=y):
 "
 
-   read_answer_with_default  y
+   read_answer_with_default y
    if [ $answer != "y" ]; then
       echo "OK quitting."
       exit 1
@@ -364,13 +337,12 @@ Starting bclconvert...
 "
    echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/1_bclconvert.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
    export PATH=/usr/bin/bcl-convert:$PATH # TODO move to config
-   snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/1_bclconvert.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN > $OUTPUT_ROOT/logs/bclconvert.smk.log
+   snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/1_bclconvert.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN >$OUTPUT_ROOT/logs/bclconvert.smk.log
 
-   if [ $? != 0 ]
-   then
+   if [ $? != 0 ]; then
 
       # bad code but might ignore that if we have sequence data
-      ls -lR $OUTPUT_ROOT/SampleSheet/bclconvert 2>/dev/null | grep "fastq.gz"   > /dev/null 2>&1
+      ls -lR $OUTPUT_ROOT/SampleSheet/bclconvert 2>/dev/null | grep "fastq.gz" >/dev/null 2>&1
 
       if [ $? == 0 ]; then
          echo "warning: bclconvert exit code was non-zero, but it did generate fastq data. "
@@ -389,16 +361,15 @@ bcl-convert has finished but received a non-zero exit code, though did generate 
 
 Do you want to continue ? (y/n, default = y):
 "
-      read_answer_with_default y 
-      if [ $answer != "y" ]; then
+      read_answer_with_default y
+      if [ "$answer" != "y" ]; then
          echo "OK quitting"
          exit 1
       fi
 
    fi
-   
 
-   if [ $INTERACTIVE != yes ]; then
+   if [ "$INTERACTIVE" != "yes" ]; then
       send_mail "(bclconvert for $RUN has completed - fastq data is now available)"
    fi
 
@@ -409,27 +380,25 @@ bclconvert completed.
    "
 }
 
-
-
-function run_lane_qc() {
+run_lane_qc() {
    echo "
 
 Finding sequence files.
 "
    mkdir -p $OUTPUT_ROOT/SampleSheet
    mkdir -p $OUTPUT_ROOT/logs
-   find $OUTPUT_ROOT/SampleSheet/bclconvert -name "*.fastq.gz" -size +1000c -print | grep -vi Undetermined > $OUTPUT_ROOT/SampleSheet/sequence_files.txt
+   find $OUTPUT_ROOT/SampleSheet/bclconvert -name "*.fastq.gz" -size +1000c -print | grep -vi Undetermined >$OUTPUT_ROOT/SampleSheet/sequence_files.txt
    return_code=$?
 
-   find $OUTPUT_ROOT/SampleSheet/bclconvert -name "*.fastq.gz" -type l -print | grep -vi Undetermined >> $OUTPUT_ROOT/SampleSheet/sequence_files.txt
-   
-   if [[ ( $return_code != 0 ) && (  $? != 0 ) ]]; then
+   find $OUTPUT_ROOT/SampleSheet/bclconvert -name "*.fastq.gz" -type l -print | grep -vi Undetermined >>$OUTPUT_ROOT/SampleSheet/sequence_files.txt
+
+   if [ "$return_code" -ne 0 ] && [ $? -ne 0 ]; then
       echo "error: oops could not find any .fastq.gz files ( or links to fastq files) under $OUTPUT_ROOT/SampleSheet/bclconvert - quiting."
       exit 1
-   fi  
+   fi
 
-### lane QC ###
-      echo "
+   ### lane QC ###
+   echo "
 About to run detailed sequencing run QC using:
 
 snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN 
@@ -437,14 +406,14 @@ snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config f
 OK ? (y/n, default=y):
 "
 
-   read_answer_with_default  y
-   if [ $answer == "y" ]; then
+   read_answer_with_default y
+   if [ "$answer" = "y" ]; then
       echo "
 Starting Run QC...
 "
       echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
-      
-      snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN  | tee $OUTPUT_ROOT/logs/run_QC.smk.log
+
+      snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN | tee $OUTPUT_ROOT/logs/run_QC.smk.log
 
       echo "
 Run QC completed... $(date)
@@ -460,11 +429,9 @@ Skipping detailed QC report...
       echo
    fi
 
+   ### fastqc rule ###
 
-
-### fastqc rule ###
-
-      echo "
+   echo "
 About to run fastqc using:
 
 snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_fastqc.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN 
@@ -472,8 +439,8 @@ snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_fastqc.smk --config f
 OK ? (y/n, default=y):
 "
 
-   read_answer_with_default  y
-   if [ $answer != "y" ]; then
+   read_answer_with_default y
+   if [ "$answer" != "y" ]; then
       echo "OK quitting."
       exit 1
    fi
@@ -483,10 +450,9 @@ Starting fastqc...
    echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_fastqc.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
    snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_fastqc.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN | tee $OUTPUT_ROOT/logs/fastqc.smk.log
 
+   ### multiQC rule ###
 
-### multiQC rule ###
-
-      echo "
+   echo "
 about to run multiQC using:
 
 snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/3_multiQC.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN 
@@ -494,8 +460,8 @@ snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/3_multiQC.smk --config 
 OK ? (y/n, default=y)
 "
 
-   read_answer_with_default  y
-   if [ $answer != "y" ]; then
+   read_answer_with_default y
+   if [ "$answer" != "y" ]; then
       echo "OK quitting"
       exit 1
    fi
@@ -503,11 +469,10 @@ OK ? (y/n, default=y)
 Starting MultiQC...
 
    "
-   echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/3_multiQC.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN" 
+   echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/3_multiQC.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN"
    snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/3_multiQC.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN | tee $OUTPUT_ROOT/logs/multiqc.smk.log
 
-
-echo "
+   echo "
 Run QC completed... $(date)
 Results: $OUTPUT_ROOT
 Questions: ben.perry@agresearch.co.nz
@@ -515,7 +480,5 @@ Questions: ben.perry@agresearch.co.nz
 "
 }
 
-
 get_opts "$@"
 get_run_opts
-
