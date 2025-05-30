@@ -17,7 +17,6 @@ import pandas as pd
 run_name = config["RUN"]
 run_in_path = os.path.join(config["IN_ROOT"], config["RUN"])
 bclconvert_out_root = os.path.join(config["OUT_ROOT"])
-bclconvert_out_path = os.path.join(bclconvert_out_root, "SampleSheet/bclconvert")
 
 
 # config dictionary values to be defined on running snakemake with --config flag
@@ -36,57 +35,36 @@ bclconvert_benchmark = os.path.join(
 )
 
 
-# config dictionary values to be defined on running snakemake with --config flag
-fastqc_in_root = os.path.join(config["OUT_ROOT"], "SampleSheet/bclconvert")
-fastqc_in_samples = os.path.join(
-    config["OUT_ROOT"], "SampleSheet/bclconvert/{sample}.fastq.gz"
-)
-fastqc_out_root = os.path.join(config["OUT_ROOT"], "SampleSheet/fastqc_run/fastqc")
-fastqc_out_samples_zips = os.path.join(
-    config["OUT_ROOT"], "SampleSheet/fastqc_run/fastqc/{sample}_fastqc.zip"
-)
-fastqc_out_samples_htmls = os.path.join(
-    config["OUT_ROOT"], "SampleSheet/fastqc_run/fastqc/{sample}_fastqc.html"
-)
-fastqc_log = os.path.join(config["OUT_ROOT"], "logs/2.1_run_fastqc.{sample}.log")
-fastqc_benchmark = os.path.join(
-    config["OUT_ROOT"], "benchmarks/run_fastqc.{sample}.txt"
-)
-
-
-# logs and reports for multiQC
-bclconvert_reports_dir = os.path.join(
-    config["OUT_ROOT"], "SampleSheet/bclconvert/Reports"
-)
-fastqc_reports_dir = os.path.join(config["OUT_ROOT"], "SampleSheet/fastqc_run/fastqc")
-multiqc_report_file = run_name + ".multiqc.html"
-multiqc_report_path = os.path.join(
-    config["OUT_ROOT"], "SampleSheet", "multiqc", multiqc_report_file
-)
-multiqc_data_dir = "multiqc_data"
-multiqc_data_dir_path = os.path.join(
-    config["OUT_ROOT"], "SampleSheet", "multiqc", multiqc_data_dir
-)
-multiqc_log = "logs/3.0.0_run_multiqc.log"
-multiqc_log_path = os.path.join(config["OUT_ROOT"], multiqc_log)
-multiqc_benchmark = "benchmarks/run_multiqc.txt"
-multiqc_benchmark_path = os.path.join(config["OUT_ROOT"], multiqc_benchmark)
-
-
 rule targets:
     input:
-        multiqc_report_path,
+        os.path.join(
+            config["OUT_ROOT"],
+            "SampleSheet",
+            "multiqc",
+            (config["RUN"] + ".multiqc.html"),
+        ),
 
 
 checkpoint run_bclconvert:
     input:
-        run_in=run_in_path,
-        sample_sheet=sample_sheet_path,
+        run_in=os.path.join(config["IN_ROOT"], config["RUN"]),
+        sample_sheet=os.path.join(config["OUT_ROOT"], "SampleSheet.csv"),
     output:
-        bclconvert_out=directory(bclconvert_out_path),
-        fastq_complete=fastq_complete_path,
+        bclconvert_out=directory(
+            os.path.join(config["OUT_ROOT"], "SampleSheet", "bclconvert")
+        ),
+        reports=directory(
+            os.path.join(config["OUT_ROOT"], "SampleSheet", "bclconvert", "Reports")
+        ),
+        fastq_complete=os.path.join(
+            config["OUT_ROOT"],
+            "SampleSheet",
+            "bclconvert",
+            "Logs",
+            "FastqComplete.txt",
+        ),
     benchmark:
-        bclconvert_benchmark
+        os.path.join(config["OUT_ROOT"], "benchmarks", "run_bclconvert.txt")
     threads: 36
     resources:
         mem_gb=lambda wildcards, attempt: 128 + ((attempt - 1) * 32),
@@ -106,18 +84,37 @@ checkpoint run_bclconvert:
         """
 
 
+fastqc_out_root = os.path.join(
+    config["OUT_ROOT"], "SampleSheet", "fastqc_run", "fastqc"
+)
+
+
 rule run_fastqc:
     input:
-        fastq=fastqc_in_samples,
+        fastq=os.path.join(
+            config["OUT_ROOT"], "SampleSheet", "bclconvert", "{sample}.fastq.gz"
+        ),
     output:
-        zip=fastqc_out_samples_zips,
-        html=fastqc_out_samples_htmls,
+        zip=os.path.join(
+            config["OUT_ROOT"],
+            "SampleSheet",
+            "fastqc_run",
+            "fastqc",
+            "{sample}_fastqc.zip",
+        ),
+        html=os.path.join(
+            config["OUT_ROOT"],
+            "SampleSheet",
+            "fastqc_run",
+            "fastqc",
+            "{sample}_fastqc.html",
+        ),
     log:
-        fastqc_log,
+        os.path.join(config["OUT_ROOT"], "logs", "run_fastqc.{sample}.log"),
     conda:
         "envs/fastqc-0.12.1.yaml"
     benchmark:
-        fastqc_benchmark
+        os.path.join(config["OUT_ROOT"], "benchmarks", "run_fastqc.{sample}.txt")
     threads: 12
     resources:
         mem_gb=lambda wildcards, attempt: 8 + ((attempt - 1) * 32),
@@ -150,24 +147,33 @@ def get_fastq(wildcards, extension=".fastq.gz"):
         if f.endswith(extension)
     ]
     basenames = [f.replace(extension, "") for f in files]
-    return expand(
-        os.path.join("results", library, "01_cutadapt/{samples}.fastq.gz"),
-        samples=basenames,
-    )
+    return basenames
+
+
+multiqc_data_dir_path = os.path.join(
+    config["OUT_ROOT"], "SampleSheet", "multiqc", "multiqc_data"
+)
 
 
 rule run_multiqc:
     input:
-        expand(fastqc_out_samples_zips, sample=get_fastq),  # input function for fastq results
-        bclconvert_in=bclconvert_reports_dir,
+        fastqc_reports=lambda wildcards: expand(
+            rules.run_fastqc.output.zip, sample=get_fastq(wildcards)
+        ),
+        bclconvert_reports=checkpoints.run_bclconvert.get().output["reports"],
     output:
-        report=multiqc_report_path,
+        report=os.path.join(
+            config["OUT_ROOT"],
+            "SampleSheet",
+            "multiqc",
+            (config["RUN"] + ".multiqc.html"),
+        ),
     log:
-        multiqc_log_path,
+        os.path.join(config["OUT_ROOT"], "logs", "run_multiqc.log"),
     conda:
         "envs/multiqc-1.17.yaml"
     benchmark:
-        multiqc_benchmark_path
+        os.path.join(config["OUT_ROOT"], "benchmarks", "run_multiqc.txt")
     threads: 2
     resources:
         mem_gb=lambda wildcards, attempt: 16 + ((attempt - 1) * 8),
@@ -176,6 +182,5 @@ rule run_multiqc:
         multiqc_config=config["multiqc_config"],
     shell:
         """
-
-        multiqc --interactive --outdir {multiqc_data_dir_path} --filename {output.report} --force -c {params.multiqc_config} --data-dir --data-format tsv {input.bclconvert_in} {input.fastqc_in} > {log} 2>&1
+        multiqc --interactive --outdir {multiqc_data_dir_path} --filename {output.report} --force -c {params.multiqc_config} --data-dir --data-format tsv {input.bclconvert_reports} {input.fastqc_reports} > {log} 2>&1
         """
