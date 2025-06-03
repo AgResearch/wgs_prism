@@ -50,6 +50,7 @@ checkpoint run_bclconvert:
     resources:
         mem_gb=lambda wildcards, attempt: 96 + ((attempt - 1) * 24),
         time=lambda wildcards, attempt: 480 + ((attempt - 1) * 120),
+        partition="compute,hugemem,vgpu",
     shell:
         """
         export PATH=/agr/persist/apps/src/b/BCL-Convert:$PATH
@@ -103,6 +104,7 @@ rule run_fastqc:
     resources:
         mem_gb=lambda wildcards, attempt: 8 + ((attempt - 1) * 32),
         time=lambda wildcards, attempt: 120 + ((attempt - 1) * 120),
+        partition="compute,hugemem,vgpu",
     shell:
         """ 
         
@@ -141,7 +143,7 @@ multiqc_data_dir_path = os.path.join(
     config["OUT_ROOT"], "SampleSheet", "multiqc", "multiqc_data"
 )
 
-
+localrules: run_multiqc
 rule run_multiqc:
     input:
         fastqc_reports=lambda wildcards: get_fastq_reports(wildcards),
@@ -160,9 +162,6 @@ rule run_multiqc:
     benchmark:
         os.path.join(config["OUT_ROOT"], "benchmarks", "run_multiqc.txt")
     threads: 2
-    resources:
-        mem_gb=lambda wildcards, attempt: 16 + ((attempt - 1) * 8),
-        time=lambda wildcards, attempt: 30 + ((attempt - 1) * 30),
     params:
         multiqc_config=config["multiqc_config"],
     shell:

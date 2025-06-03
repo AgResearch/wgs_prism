@@ -1,6 +1,7 @@
 #!/bin/sh
 # Interactive script to run wgs_prism2 on a WGS Illumina Sequencing Run.
 
+module purge && module load Miniforge3/24.9.0-0
 module load snakemake/7.32.3-foss-2023a-Python-3.11.6
 WGS_PRISM_BIN=/projects/2023_sequence_production/wgs_prism
 cd $WGS_PRISM_BIN
