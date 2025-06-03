@@ -1,35 +1,24 @@
 #!/bin/sh
-#
-# master interactive script for processing a novaseq run through bclconvert
-#
+# Interactive script to run wgs_prism2 on a WGS Illumina Sequencing Run.
 
+module load snakemake/7.32.3-foss-2023a-Python-3.11.6
 WGS_PRISM_BIN=/projects/2023_sequence_production/wgs_prism
 cd $WGS_PRISM_BIN
 
 ILLUMINA_PROJECT=2024_illumina_sequencing_g
-
 SMK_CONFIG_DIR=config/slurm/eRI
-
 SEQ_ROOT=/projects/$ILLUMINA_PROJECT/run_data
 SEQ_BCLCONVERT_ROOT=/projects/$ILLUMINA_PROJECT/postprocessing/illumina
-
 OUT_ROOT=""
 
-# default walltime for fastqc in minutes
-FASTQC_WALL=120
 
 get_run_opts() {
-   echo " Running wgs_prism2
-* note that you can paste into your terminal window by clicking your right mouse button
-* at any stage you can press CTRL-C to exit the dialogs
-"
+   echo "Running Illumina Sequence Production and MultiQC Report Gerneration."
 
    ####### get and check RUN
    while [ 1 ]; do
-      echo "
-please give the full name of wgs run you would like to process ( e.g. 210712_A01439_0006_AHC7MJDRXY (novaseq) ):
-
-"
+      echo "Please give the full name of the Illumina run:(e.g. 210712_A01439_0006_AHC7MJDRXY): "
+      echo
       read_answer_with_default $ARGRUN
       RUN=$answer
 
@@ -45,6 +34,7 @@ please give the full name of wgs run you would like to process ( e.g. 210712_A01
    done
 
    echo "will process $SEQ_ROOT/$RUN"
+   echo
 
    RUN_TYPE=$(python workflow/scripts/runinfo_to_machinetype.py $SEQ_ROOT/$RUN/RunInfo.xml)
    mkdir -p $SEQ_BCLCONVERT_ROOT/$RUN_TYPE
@@ -74,13 +64,12 @@ try /dataset/hiseq/active/sample-sheets. If it is there, please copy to the run 
    # set up output folder
 
    while [ 1 ]; do
-      echo "
-
-please specify the full path to the q/c output folder (or just press ENTER to use default , $SEQ_BCLCONVERT_ROOT/$RUN_TYPE/$RUN )"
+      echo "Please specify the output folder, or press ENTER to use the default: $SEQ_BCLCONVERT_ROOT/$RUN_TYPE/$RUN "
       read_answer_with_default $SEQ_BCLCONVERT_ROOT/$RUN_TYPE/$RUN
       NEW_ROOT=$answer
       if [ -d $NEW_ROOT ]; then
-         echo "warning - $NEW_ROOT already exists, use anyway ? (y/n, default=y)"
+         echo
+         echo "Warning: $NEW_ROOT already exists, use anyway ? (y/n; default=y)"
          read_answer_with_default y
          if [ $answer == "y" ]; then
             OUTPUT_ROOT=$NEW_ROOT
@@ -95,59 +84,21 @@ please specify the full path to the q/c output folder (or just press ENTER to us
       fi
    done
 
-   ####### check whether we can find sequence data - if not confirm  bclconvert is needed
-   echo "checking sequence data (looking under  $OUTPUT_ROOT)....
-
-"
-   ls -lR $OUTPUT_ROOT/SampleSheet/bclconvert 2>/dev/null | grep "fastq.gz" >/dev/null 2>&1
-   if [ $? != 0 ]; then
-      echo "could not find fastq.gz data in $OUTPUT_ROOT/SampleSheet/bclconvert.
-
-if you just want to run downstream q/c, CTRL-C now and create symlinks to your data in:
-
-$OUTPUT_ROOT/SampleSheet/bclconvert 
-
-. . . but you probably want to run bclconvert  - OK to run that ? (y/n, default=y)"
-      read_answer_with_default y
-      if [ "$answer" != "y" ]; then
-         echo "OK continuing..."
-         echo
-      else
-         run_bclconvert
-      fi
-   else
-      echo "found fastq.gz data: "
-      ls -lR $OUTPUT_ROOT/SampleSheet/bclconvert | grep "fastq.gz"
-      echo
-
-   fi
-
-   ####### check whether we can find lane q/c landmark - if not confirm
-   echo "checking for MultiQC summary report ... "
    echo
-
-   ls $OUTPUT_ROOT/SampleSheet/multiqc/*.multiqc.html >/dev/null 2>&1
-   if [ $? != 0 ]; then
-      echo "could not find MultiQC summary report - OK to run lane q/c ? (y/n, default=y)"
-      read_answer_with_default y
-      if [ "$answer" != "y" ]; then
-         echo "OK continuing..."
-      else
-         run_lane_qc
-      fi
+   echo "Will use run  $SEQ_ROOT/$RUN"
+   echo "Will use output folder $OUTPUT_ROOT"
+   echo "Proceed with sequence production and multiQC report generation ? (y/n; default=y)"
+   read_answer_with_default y
+   if [ "$answer" != "y" ]; then
+      echo "OK quiting..."
+      exit 0
    else
-      echo "found multiQC report: "
-      ls $OUTPUT_ROOT/SampleSheet/multiqc/*.multiqc.html
       echo
+      run_sequencer_qc
    fi
 
 }
 
-send_mail() {
-   message="$1"
-   echo "sending mail"
-   echo "" | mutt -s "$message" vanstijnt , mccullocha, bairdh, perrybe, andersonr, andrewsa, henryh, frenchm, hicklandm
-}
 
 read_answer_with_default() {
    if [ $INTERACTIVE == yes ]; then
@@ -163,21 +114,13 @@ read_answer_with_default() {
    fi
 }
 
-more_with_default() {
-   if [ $INTERACTIVE == yes ]; then
-      more $1
-   else
-      cat $1
-   fi
-}
 
 get_opts() {
    INTERACTIVE=no
    INTERACTIVE_OPT=""
    ARGRUN=""
    help_text="
-This script is called by run_wgs_qc (or non-interactively by a cron job).
-Usage :\n
+This script is called by run_wgs_qc.
 "
    while getopts ":hir:" opt; do
       case $opt in
@@ -207,38 +150,30 @@ Usage :\n
 
 }
 
-run_bclconvert() {
+run_sequencer_qc() {
 
-   echo "
-
-Checking run is completed (i.e. looking for $SEQ_ROOT/$RUN/RTAComplete.txt).
-
-"
+   echo "Checking run is completed (i.e. looking for $SEQ_ROOT/$RUN/RTAComplete.txt)..."
    if [ ! -f $SEQ_ROOT/$RUN/RTAComplete.txt ]; then
-      echo "warning: landmark file $SEQ_ROOT/$RUN/RTAComplete.txt does not exist => this run has not completed sequencing (or uploading?) - are you SURE you want to continue !? (y/n default n)"
+      echo "Warning: $SEQ_ROOT/$RUN/RTAComplete.txt does not exist, this run has not completed sequencing or uploading! Are you SURE you want to continue? (y/n; default n)"
       read_answer_with_default n
       if [ $answer != "y" ]; then
          echo "OK quitting."
          exit 1
       else
-         echo "OK will continue but note that output may be incomplete."
+         echo "OK will continue..."
       fi
    fi
-
-   bclconvert_phrase="" # not currently used - previously used to pass in bcl2fastq options
-   samplesheet_to_fastqnames_phrase=""
 
    # set up for bclconvert run
    mkdir -p $OUTPUT_ROOT/SampleSheet
    mkdir -p $OUTPUT_ROOT/logs
 
    if [ ! -d $OUTPUT_ROOT/SampleSheet ]; then
-      echo "error: could not create bclconvert output folder $OUTPUT_ROOT/SampleSheet -- quitting."
+      echo "Error: could not create bclconvert output folder $OUTPUT_ROOT/SampleSheet... I quit."
       exit 1
    fi
 
    # Gather sample sheet from active
-
    if [ ! -f $OUTPUT_ROOT/SampleSheet.csv ]; then
       echo "Copying $SAMPLE_SHEET to $OUTPUT_ROOT/SampleSheet.csv "
       cp $SAMPLE_SHEET $OUTPUT_ROOT/SampleSheet.csv
@@ -267,14 +202,11 @@ Checking run is completed (i.e. looking for $SEQ_ROOT/$RUN/RTAComplete.txt).
   2) You will need to remove all samples from the sample sheet which are not part of this batch.
   In reprocessing of this run (eg. other batches) you will be prompted to modify the original sample sheet again.
 
-
   If this run requires the removal of T-overhangs:
-
   [Settings]
   OverrideCycles,N1Y150;I10;I10;N1Y150
 
   Ref https://support.illumina.com/bulletins/2020/06/trimming-t-overhang-options-for-the-illumina-rna-library-prep-wo.html
-
 
   If this run has UMIs which need to be demultiplexed and captured:
   Note: if the indices in the sample sheet are supplied with N for the UMIs remove those and leave the index sequences.
@@ -290,195 +222,57 @@ Checking run is completed (i.e. looking for $SEQ_ROOT/$RUN/RTAComplete.txt).
   CreateFastqForIndexReads,1,,,,,,,,
   TrimUMI,0,,,,,,,,
 
-  Ref: https://knowledge.illumina.com/software/on-premises-software/software-on-premises-software-reference_material-list/000007337"
-
-   echo "Press Enter to review sample sheet:"
+  Ref: https://knowledge.illumina.com/software/on-premises-software/software-on-premises-software-reference_material-list/000007337
+  "
+   echo "Press Enter to review sample sheet in vim."
    read_answer_with_default ""
 
    vim $OUTPUT_ROOT/SampleSheet.csv
-   echo "
-If this is OK ? answer y (or just press enter):
-   "
+
+   echo "Proceed with updated SampleSheet.csv? (y/n; default y):"
    read_answer_with_default y
    if [ $answer != "y" ]; then
-      echo "
-OK quitting.
-
-(please edit $OUTPUT_ROOT/SampleSheet.csv and try again)"
+      echo "OK quitting..."
       exit 1
    fi
 
    ###### ensure output folder does not exist
    if [ -d $OUTPUT_ROOT/SampleSheet/bclconvert ]; then
-      echo "
-error: $OUTPUT_ROOT/SampleSheet/bclconvert already exists - please clean up and retry."
+      echo "Error: $OUTPUT_ROOT/SampleSheet/bclconvert already exists, please clean up and retry."
       exit 1
    fi
 
-   # remove the make target if it exists
-   rm -f $OUTPUT_ROOT/SampleSheet/SampleSheet.csv.bclconvert
 
    echo "
-About to run bclconvert using:
+About to run sequence production and multiQC generation using:
 
-snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/1_bclconvert.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN
+snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/wgs_prism.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN
 
 OK ? (y/n, default=y):
 "
 
    read_answer_with_default y
    if [ $answer != "y" ]; then
-      echo "OK quitting."
+      echo "OK quitting..."
       exit 1
    fi
-   echo "
-Starting bclconvert...
+   echo "Starting..."
 
-"
-   echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/1_bclconvert.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
-   export PATH=/usr/bin/bcl-convert:$PATH # TODO move to config
-   snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/1_bclconvert.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN >$OUTPUT_ROOT/logs/bclconvert.smk.log
-
+   echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/wgs_prism.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
+   
+   snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/wgs_prism.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN > $OUTPUT_ROOT/logs/wgs_prism.log
+   
    if [ $? != 0 ]; then
-
-      # bad code but might ignore that if we have sequence data
-      ls -lR $OUTPUT_ROOT/SampleSheet/bclconvert 2>/dev/null | grep "fastq.gz" >/dev/null 2>&1
-
-      if [ $? == 0 ]; then
-         echo "warning: bclconvert exit code was non-zero, but it did generate fastq data. "
-      else
-         if [ $INTERACTIVE != yes ]; then
-            send_mail "Sorry bclconvert for $RUN exited with an error code and no fastq data was generated."
-         fi
-         echo "error: bclconvert exit code was non-zero and no sequence data generated. "
-         echo "(suggest check $OUTPUT_ROOT/SampleSheet/bcl-convert.log)"
-         exit 1
-      fi
-
-      echo "
-
-bcl-convert has finished but received a non-zero exit code, though did generate fastq data so might be OK. 
-
-Do you want to continue ? (y/n, default = y):
-"
-      read_answer_with_default y
-      if [ "$answer" != "y" ]; then
-         echo "OK quitting"
-         exit 1
-      fi
-
+      echo "Error: run wgs_prism run failed - please check $OUTPUT_ROOT/logs/wgs_prism.log"
+      exit 1
    fi
 
-   if [ "$INTERACTIVE" != "yes" ]; then
-      send_mail "(bclconvert for $RUN has completed - fastq data is now available)"
-   fi
+   echo "Sequence production and multiQC report generation completed."
+   echo "Results: $OUTPUT_ROOT"
+   echo "MultiQC: $OUTPUT_ROOT/SampleSheet/multiqc/$RUN.multiqc.html"
 
-   echo "
-
-bclconvert completed.
-
-   "
 }
 
-run_lane_qc() {
-   echo "
-
-Finding sequence files.
-"
-   mkdir -p $OUTPUT_ROOT/SampleSheet
-   mkdir -p $OUTPUT_ROOT/logs
-   find $OUTPUT_ROOT/SampleSheet/bclconvert -name "*.fastq.gz" -size +1000c -print | grep -vi Undetermined >$OUTPUT_ROOT/SampleSheet/sequence_files.txt
-   return_code=$?
-
-   find $OUTPUT_ROOT/SampleSheet/bclconvert -name "*.fastq.gz" -type l -print | grep -vi Undetermined >>$OUTPUT_ROOT/SampleSheet/sequence_files.txt
-
-   if [ "$return_code" -ne 0 ] && [ $? -ne 0 ]; then
-      echo "error: oops could not find any .fastq.gz files ( or links to fastq files) under $OUTPUT_ROOT/SampleSheet/bclconvert - quiting."
-      exit 1
-   fi
-
-   ### lane QC ###
-   echo "
-About to run detailed sequencing run QC using:
-
-snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN 
-
-OK ? (y/n, default=y):
-"
-
-   read_answer_with_default y
-   if [ "$answer" = "y" ]; then
-      echo "
-Starting Run QC...
-"
-      echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
-
-      snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_run_QC.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN | tee $OUTPUT_ROOT/logs/run_QC.smk.log
-
-      echo "
-Run QC completed... $(date)
-Results: $OUTPUT_ROOT
-Questions: ben.perry@agresearch.co.nz
-
-"
-      exit 0
-   else
-      echo "
-Skipping detailed QC report...
-"
-      echo
-   fi
-
-   ### fastqc rule ###
-
-   echo "
-About to run fastqc using:
-
-snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_fastqc.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN 
-
-OK ? (y/n, default=y):
-"
-
-   read_answer_with_default y
-   if [ "$answer" != "y" ]; then
-      echo "OK quitting."
-      exit 1
-   fi
-   echo "
-Starting fastqc...
-"
-   echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_fastqc.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
-   snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/2_fastqc.smk --config fastqc_walltime=$FASTQC_WALL OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN | tee $OUTPUT_ROOT/logs/fastqc.smk.log
-
-   ### multiQC rule ###
-
-   echo "
-about to run multiQC using:
-
-snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/3_multiQC.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN 
-
-OK ? (y/n, default=y)
-"
-
-   read_answer_with_default y
-   if [ "$answer" != "y" ]; then
-      echo "OK quitting"
-      exit 1
-   fi
-   echo "
-Starting MultiQC...
-
-   "
-   echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/3_multiQC.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN"
-   snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/3_multiQC.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN | tee $OUTPUT_ROOT/logs/multiqc.smk.log
-
-   echo "
-Run QC completed... $(date)
-Results: $OUTPUT_ROOT
-Questions: ben.perry@agresearch.co.nz
-
-"
-}
 
 get_opts "$@"
 get_run_opts
