@@ -130,7 +130,7 @@ def get_fastq_reports(wildcards, extension=".fastq.gz"):
     files = [
         os.path.basename(f)
         for f in os.listdir(directory)
-        if f.endswith(extension)
+        if f.endswith(extension) and "Undetermined" not in f
     ]
     basenames = [f.replace(extension, "") for f in files]
     return expand(
