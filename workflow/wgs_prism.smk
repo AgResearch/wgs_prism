@@ -49,7 +49,7 @@ checkpoint run_bclconvert:
     threads: 24
     resources:
         mem_gb=lambda wildcards, attempt: 96 + ((attempt - 1) * 24),
-        time=lambda wildcards, attempt: 480 + ((attempt - 1) * 120),
+        time=lambda wildcards, attempt: 180 + ((attempt - 1) * 480),
         partition="compute,hugemem,vgpu",
     shell:
         """
@@ -102,8 +102,8 @@ rule run_fastqc:
         os.path.join(config["OUT_ROOT"], "benchmarks", "run_fastqc.{sample}.txt")
     threads: 12
     resources:
-        mem_gb=lambda wildcards, attempt: 8 + ((attempt - 1) * 32),
-        time=lambda wildcards, attempt: 120 + ((attempt - 1) * 120),
+        mem_gb=lambda wildcards, attempt: 16 + ((attempt - 1) * 32),
+        time=lambda wildcards, attempt: 180 + ((attempt - 1) * 720),
         partition="compute,hugemem,vgpu",
     shell:
         """ 

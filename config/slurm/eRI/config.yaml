@@ -16,10 +16,10 @@ default-resources:
   - partition=compute
   - time=120
   - mem_gb=48
-restart-times: 1
+restart-times: 5
 local-cores: 2
-latency-wait: 6000
-jobs: 150
+latency-wait: 600
+jobs: 25
 max-jobs-per-second: 0.5
 keep-going: True
 rerun-incomplete: True
