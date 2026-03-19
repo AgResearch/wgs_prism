@@ -10,11 +10,11 @@
 RUN: "231005_A01439_0216_AHL7NKDRX3"
 # eg. /dataset/2023_illumina_sequencing_[a-z]/active/$RUN
 # AKA. $SEQ_ROOT
-IN_ROOT: "/projects/2024_illumina_sequencing_g/run_data"
+IN_ROOT: "/projects/2026_sequence_production_a/run_data"
 # eg. /datasets/2023_illumina_sequencing_[a-z]/scratch/postprocessing/illumina/novaseq/$RUN
 # AKA. $OUTPUT_ROOT
 # OUTPUT_ROOT must be passed via --config parameter at runtime
-OUT_ROOT: "/projects/2024_illumina_sequencing_g/postprocessing/illumina"
+OUT_ROOT: "/projects/2026_sequence_production_a/postprocessing/illumina"
 
 ### Reference Data Locations ###
 human_genome_index: "/projects/2023_sequence_production/wgs_prism/resources/GRCh38/GRCh38"
