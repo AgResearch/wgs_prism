@@ -6,7 +6,7 @@ module load snakemake/7.32.3-foss-2023a-Python-3.11.6
 WGS_PRISM_BIN=/projects/2023_sequence_production/wgs_prism
 cd $WGS_PRISM_BIN
 
-ILLUMINA_PROJECT=2024_illumina_sequencing_g
+ILLUMINA_PROJECT=2026_sequence_production_a
 SMK_CONFIG_DIR=config/slurm/eRI
 SEQ_ROOT=/projects/$ILLUMINA_PROJECT/run_data
 SEQ_BCLCONVERT_ROOT=/projects/$ILLUMINA_PROJECT/postprocessing/illumina
