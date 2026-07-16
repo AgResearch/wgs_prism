@@ -24,6 +24,15 @@ rule targets:
         ),
 
 
+# Lives outside the bclconvert output dir so it survives Snakemake deleting
+# that directory() output on job failure. Note bclconvert_out itself is only
+# created as a side effect of preparing the nested reports/fastq_complete
+# outputs below (Snakemake pre-creates a directory() output's parent, not the
+# directory itself) — which is also why --force is required in the shell:
+# the dir already exists (empty) by the time bcl-convert runs.
+bclconvert_logs_persist = os.path.join(config["OUT_ROOT"], "logs", "bclconvert_Logs")
+
+
 checkpoint run_bclconvert:
     input:
         run_in=os.path.join(config["IN_ROOT"], config["RUN"]),
@@ -55,17 +64,30 @@ checkpoint run_bclconvert:
         """
         export PATH=/agr/persist/apps/src/b/BCL-Convert:$PATH
 
-        # report version 
-        echo "bcl-convert version in use:"
-        bcl-convert -V 
+        echo "bcl-convert version in use:" > {log}
+        bcl-convert -V >> {log} 2>&1
+        echo >> {log}
 
-        echo
+        # Capture exit status ourselves (Snakemake's `set -e` would otherwise
+        # abort before the log-rescue step below runs on failure).
+        bcl_status=0
+        bcl-convert --force \
+            --bcl-input-directory {input.run_in} \
+            --sample-sheet {input.sample_sheet} \
+            --output-directory {output.bclconvert_out} >> {log} 2>&1 || bcl_status=$?
 
-        bcl-convert --force --bcl-input-directory {input.run_in} --sample-sheet {input.sample_sheet} --output-directory {output.bclconvert_out} > {log} 2>&1
+        # Rescue bcl-convert's Logs/ before Snakemake deletes the output dir on
+        # failure; `ls` guard avoids tripping `set -e` if Logs/ never appeared.
+        if ls {output.bclconvert_out}/Logs/*.log >/dev/null 2>&1; then
+            mkdir -p {bclconvert_logs_persist}
+            cp -f {output.bclconvert_out}/Logs/*.log {bclconvert_logs_persist}/
 
-        # Need to scrape the logs into the log file for the failure case as snakemake cleans up the directory with the logs
-        cat {output.bclconvert_out}/Logs/*.log > {log}
-        
+            echo >> {log}
+            echo "===== bcl-convert Logs/ (preserved in {bclconvert_logs_persist}) =====" >> {log}
+            cat {output.bclconvert_out}/Logs/*.log >> {log}
+        fi
+
+        exit $bcl_status
         """
 
 

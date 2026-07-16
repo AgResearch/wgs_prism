@@ -4,40 +4,42 @@
 module purge && module load Miniforge3/24.9.0-0
 module load snakemake/7.32.3-foss-2023a-Python-3.11.6
 WGS_PRISM_BIN=/projects/2023_sequence_production/wgs_prism
-cd $WGS_PRISM_BIN
+cd "$WGS_PRISM_BIN" || exit 1
 
 ILLUMINA_PROJECT=2026_sequence_production_a
 SMK_CONFIG_DIR=config/slurm/eRI
 SEQ_ROOT=/projects/$ILLUMINA_PROJECT/run_data
 SEQ_BCLCONVERT_ROOT=/projects/$ILLUMINA_PROJECT/postprocessing/illumina
-OUT_ROOT=""
 
 
 get_run_opts() {
-   echo "Running Illumina Sequence Production and MultiQC Report Gerneration."
+   echo "Running Illumina Sequence Production and MultiQC Report Generation."
 
    ####### get and check RUN
    while [ 1 ]; do
-      echo "Please give the full name of the Illumina run:(e.g. 210712_A01439_0006_AHC7MJDRXY): "
+      echo "Please give the full name of the Illumina run (e.g. 210712_A01439_0006_AHC7MJDRXY): "
       echo
       read_answer_with_default $ARGRUN
       RUN=$answer
 
-      if [ -z "$SEQ_ROOT/$RUN" ]; then
-
-         echo "sorry can't find $RUN under $SEQ_ROOT"
-         quit
-      else
-         if [ -d "$SEQ_ROOT/$RUN" ]; then
-            break
-         fi
+      if [ -n "$RUN" ] && [ -d "$SEQ_ROOT/$RUN" ]; then
+         break
       fi
+      echo "Sorry, can't find $RUN under $SEQ_ROOT"
    done
 
-   echo "will process $SEQ_ROOT/$RUN"
+   echo "Will process $SEQ_ROOT/$RUN"
    echo
 
+   if [ ! -f "$SEQ_ROOT/$RUN/RunInfo.xml" ]; then
+      echo "Error: $SEQ_ROOT/$RUN/RunInfo.xml not found, cannot determine machine type. Quitting."
+      exit 1
+   fi
    RUN_TYPE=$(python workflow/scripts/runinfo_to_machinetype.py $SEQ_ROOT/$RUN/RunInfo.xml)
+   if [ -z "$RUN_TYPE" ]; then
+      echo "Error: could not determine machine type from $SEQ_ROOT/$RUN/RunInfo.xml. Quitting."
+      exit 1
+   fi
    mkdir -p $SEQ_BCLCONVERT_ROOT/$RUN_TYPE
 
    ####### find the sample sheet  - e.g. could be HNFW2DRXY.csv or SampleSheet.csv
@@ -46,16 +48,16 @@ get_run_opts() {
    if [ ! -f $SAMPLE_SHEET ]; then
       SAMPLE_SHEET=$(ls $SEQ_ROOT/$RUN/*.csv 2>/dev/null)
       if [ $? != 0 ]; then
-         echo "sorry can't find the sample-sheet for this run under $SEQ_ROOT/$RUN
-try /dataset/hiseq/active/sample-sheets. If it is there, please copy to the run folder $SEQ_ROOT/$RUN
+         echo "Sorry, can't find the sample sheet for this run under $SEQ_ROOT/$RUN
+Try /dataset/hiseq/active/sample-sheets. If it is there, please copy it to the run folder $SEQ_ROOT/$RUN
 "
          exit 1
       fi
       base=$(basename $SAMPLE_SHEET .csv)
       echo $RUN | grep $base >/dev/null 2>&1
       if [ $? != 0 ]; then
-         echo "sorry can't find the sample-sheet for this run under $SEQ_ROOT/$RUN
-try /dataset/hiseq/active/sample-sheets. If it is there, please copy to the run folder $SEQ_ROOT/$RUN
+         echo "Sorry, can't find the sample sheet for this run under $SEQ_ROOT/$RUN
+Try /dataset/hiseq/active/sample-sheets. If it is there, please copy it to the run folder $SEQ_ROOT/$RUN
 "
          exit 1
       fi
@@ -65,12 +67,12 @@ try /dataset/hiseq/active/sample-sheets. If it is there, please copy to the run 
    # set up output folder
 
    while [ 1 ]; do
-      echo "Please specify the output folder, or press ENTER to use the default: $SEQ_BCLCONVERT_ROOT/$RUN_TYPE/$RUN "
+      echo "Please specify the output folder, or press Enter to use the default: $SEQ_BCLCONVERT_ROOT/$RUN_TYPE/$RUN "
       read_answer_with_default $SEQ_BCLCONVERT_ROOT/$RUN_TYPE/$RUN
       NEW_ROOT=$answer
       if [ -d $NEW_ROOT ]; then
          echo
-         echo "Warning: $NEW_ROOT already exists, use anyway ? (y/n; default=y)"
+         echo "Warning: $NEW_ROOT already exists, use anyway? (y/n; default=y)"
          read_answer_with_default y
          if [ $answer == "y" ]; then
             OUTPUT_ROOT=$NEW_ROOT
@@ -86,12 +88,12 @@ try /dataset/hiseq/active/sample-sheets. If it is there, please copy to the run 
    done
 
    echo
-   echo "Will use run  $SEQ_ROOT/$RUN"
+   echo "Will use run $SEQ_ROOT/$RUN"
    echo "Will use output folder $OUTPUT_ROOT"
-   echo "Proceed with sequence production and multiQC report generation ? (y/n; default=y)"
+   echo "Proceed with sequence production and MultiQC report generation? (y/n; default=y)"
    read_answer_with_default y
    if [ "$answer" != "y" ]; then
-      echo "OK quiting..."
+      echo "OK, quitting..."
       exit 0
    else
       echo
@@ -102,14 +104,8 @@ try /dataset/hiseq/active/sample-sheets. If it is there, please copy to the run 
 
 
 read_answer_with_default() {
-   if [ $INTERACTIVE == yes ]; then
-      read answer
-      echo "User response: $answer"
-      if [ -z "$answer" ]; then
-         answer=$@
-         echo "Default response: $answer"
-      fi
-   else
+   read answer
+   if [ -z "$answer" ]; then
       answer=$@
       echo "Default response: $answer"
    fi
@@ -117,21 +113,15 @@ read_answer_with_default() {
 
 
 get_opts() {
-   INTERACTIVE=no
-   INTERACTIVE_OPT=""
    ARGRUN=""
    help_text="
 This script is called by run_wgs_qc.
 "
-   while getopts ":hir:" opt; do
+   while getopts ":hr:" opt; do
       case $opt in
       h)
          echo -e $help_text
          exit 0
-         ;;
-      i)
-         INTERACTIVE=yes
-         INTERACTIVE_OPT="-i"
          ;;
       r)
          ARGRUN=$OPTARG
@@ -155,13 +145,13 @@ run_sequencer_qc() {
 
    echo "Checking run is completed (i.e. looking for $SEQ_ROOT/$RUN/RTAComplete.txt)..."
    if [ ! -f $SEQ_ROOT/$RUN/RTAComplete.txt ]; then
-      echo "Warning: $SEQ_ROOT/$RUN/RTAComplete.txt does not exist, this run has not completed sequencing or uploading! Are you SURE you want to continue? (y/n; default n)"
+      echo "Warning: $SEQ_ROOT/$RUN/RTAComplete.txt does not exist, this run has not completed sequencing or uploading! Are you SURE you want to continue? (y/n; default=n)"
       read_answer_with_default n
       if [ $answer != "y" ]; then
-         echo "OK quitting."
+         echo "OK, quitting..."
          exit 1
       else
-         echo "OK will continue..."
+         echo "OK, will continue..."
       fi
    fi
 
@@ -170,7 +160,7 @@ run_sequencer_qc() {
    mkdir -p $OUTPUT_ROOT/logs
 
    if [ ! -d $OUTPUT_ROOT/SampleSheet ]; then
-      echo "Error: could not create bclconvert output folder $OUTPUT_ROOT/SampleSheet... I quit."
+      echo "Error: could not create bclconvert output folder $OUTPUT_ROOT/SampleSheet. Quitting."
       exit 1
    fi
 
@@ -182,7 +172,7 @@ run_sequencer_qc() {
 
    echo "
   Using sample sheet $OUTPUT_ROOT/SampleSheet.csv for bclconvert.
-  Please review and edit this samples sheet making any necessary changes for batch processing. 
+  Please review and edit this sample sheet, making any necessary changes for batch processing.
 
   If this is batched with indices of different lengths, you will need to do the following:
 
@@ -201,16 +191,16 @@ run_sequencer_qc() {
   OverrideCycles,Y101;I10;I8N2,,,,,,,,
 
   2) You will need to remove all samples from the sample sheet which are not part of this batch.
-  In reprocessing of this run (eg. other batches) you will be prompted to modify the original sample sheet again.
+  In reprocessing of this run (e.g. other batches) you will be prompted to modify the original sample sheet again.
 
   If this run requires the removal of T-overhangs:
   [Settings]
   OverrideCycles,N1Y150;I10;I10;N1Y150
 
-  Ref https://support.illumina.com/bulletins/2020/06/trimming-t-overhang-options-for-the-illumina-rna-library-prep-wo.html
+  Ref: https://support.illumina.com/bulletins/2020/06/trimming-t-overhang-options-for-the-illumina-rna-library-prep-wo.html
 
   If this run has UMIs which need to be demultiplexed and captured:
-  Note: if the indices in the sample sheet are supplied with N for the UMIs remove those and leave the index sequences.
+  Note: if the indices in the sample sheet are supplied with N for the UMIs, remove those and leave the index sequences.
 
   # 101 bp PE reads with 12 bp UMI and 8 bp i5 index and 8 bp i7 index
   [Settings],,,,,,,,,
@@ -230,10 +220,10 @@ run_sequencer_qc() {
 
    vim $OUTPUT_ROOT/SampleSheet.csv
 
-   echo "Proceed with updated SampleSheet.csv? (y/n; default y):"
+   echo "Proceed with updated SampleSheet.csv? (y/n; default=y):"
    read_answer_with_default y
    if [ $answer != "y" ]; then
-      echo "OK quitting..."
+      echo "OK, quitting..."
       exit 1
    fi
 
@@ -245,32 +235,42 @@ run_sequencer_qc() {
 
 
    echo "
-About to run sequence production and multiQC generation using:
+About to run sequence production and MultiQC generation using:
 
 snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/wgs_prism.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN
 
-OK ? (y/n, default=y):
+OK? (y/n; default=y):
 "
 
    read_answer_with_default y
    if [ $answer != "y" ]; then
-      echo "OK quitting..."
+      echo "OK, quitting..."
       exit 1
    fi
    echo "Starting..."
 
    echo "snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/wgs_prism.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN "
    
-   snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/wgs_prism.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN > $OUTPUT_ROOT/logs/wgs_prism.log
-   
-   if [ $? != 0 ]; then
-      echo "Error: run wgs_prism run failed - please check $OUTPUT_ROOT/logs/wgs_prism.log"
+   snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/wgs_prism.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN 2>&1 | tee "$OUTPUT_ROOT/logs/wgs_prism.log"
+
+   if [ ${PIPESTATUS[0]} != 0 ]; then
+      echo "Error: wgs_prism run failed. Check the logs under $OUTPUT_ROOT/logs/ :"
+      echo "  - wgs_prism.log                : snakemake orchestration log (this run)"
+      echo "  - run_bclconvert.log           : bcl-convert version, stdout/stderr and its Logs/"
+      echo "  - bclconvert_Logs/             : bcl-convert Errors.log / Warnings.log / Info.log (preserved on failure)"
+      echo "  - run_fastqc.*.log, run_multiqc.log : per-step logs"
+      echo "  - slurm/                       : per-job SLURM output"
       exit 1
    fi
 
-   echo "Sequence production and multiQC report generation completed."
-   echo "Results: $OUTPUT_ROOT"
-   echo "MultiQC: $OUTPUT_ROOT/SampleSheet/multiqc/$RUN.multiqc.html"
+   echo "Success: wgs_prism run for $RUN completed. Outputs under $OUTPUT_ROOT/ :"
+   echo "  - SampleSheet/multiqc/$RUN.multiqc.html : MultiQC report (open this first)"
+   echo "  - SampleSheet/multiqc/multiqc_data/     : MultiQC parsed data (tsv)"
+   echo "  - SampleSheet/bclconvert/               : demultiplexed FASTQ files (.fastq.gz)"
+   echo "  - SampleSheet/bclconvert/Reports/       : bcl-convert demultiplexing reports"
+   echo "  - SampleSheet/fastqc_run/fastqc/        : per-sample FastQC reports"
+   echo "  - logs/                                 : per-step run logs"
+   echo "  - benchmarks/                           : per-step runtime/memory benchmarks"
 
 }
 

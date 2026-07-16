@@ -2,12 +2,12 @@
 
 function get_pipeline() {
    
-   export WGS_PRISM_BIN=$(pwd) # TODO Updated on system configuration
-   cd $WGS_PRISM_BIN
+   WGS_PRISM_BIN=$(pwd)
+   cd "$WGS_PRISM_BIN" || exit 1
    echo "CWD: $WGS_PRISM_BIN"
-   echo "running wgs qc pipeline (press enter to continue)"
+   echo "Running wgs qc pipeline (press Enter to continue)"
    read answer
-   exec ./_run_wgs_qc -i 
+   exec ./_run_wgs_qc
 
 }
 
