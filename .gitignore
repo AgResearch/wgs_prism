@@ -3,3 +3,4 @@ resources/GRCh38/
 gbs_prism.log
 .snakemake/
 .psij/
+.*
