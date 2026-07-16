@@ -6,7 +6,7 @@ module load snakemake/7.32.3-foss-2023a-Python-3.11.6
 WGS_PRISM_BIN=/projects/2023_sequence_production/wgs_prism
 cd "$WGS_PRISM_BIN" || exit 1
 
-ILLUMINA_PROJECT=2024_illumina_sequencing_g
+ILLUMINA_PROJECT=2026_sequence_production_a
 SMK_CONFIG_DIR=config/slurm/eRI
 SEQ_ROOT=/projects/$ILLUMINA_PROJECT/run_data
 SEQ_BCLCONVERT_ROOT=/projects/$ILLUMINA_PROJECT/postprocessing/illumina
@@ -254,13 +254,23 @@ OK? (y/n; default=y):
    snakemake --profile $SMK_CONFIG_DIR --snakefile workflow/wgs_prism.smk --config OUT_ROOT=$OUTPUT_ROOT IN_ROOT=$SEQ_ROOT RUN=$RUN 2>&1 | tee "$OUTPUT_ROOT/logs/wgs_prism.log"
 
    if [ ${PIPESTATUS[0]} != 0 ]; then
-      echo "Error: wgs_prism run failed - please check $OUTPUT_ROOT/logs/wgs_prism.log"
+      echo "Error: wgs_prism run failed. Check the logs under $OUTPUT_ROOT/logs/ :"
+      echo "  - wgs_prism.log                : snakemake orchestration log (this run)"
+      echo "  - run_bclconvert.log           : bcl-convert version, stdout/stderr and its Logs/"
+      echo "  - bclconvert_Logs/             : bcl-convert Errors.log / Warnings.log / Info.log (preserved on failure)"
+      echo "  - run_fastqc.*.log, run_multiqc.log : per-step logs"
+      echo "  - slurm/                       : per-job SLURM output"
       exit 1
    fi
 
-   echo "Sequence production and MultiQC report generation completed."
-   echo "Results: $OUTPUT_ROOT"
-   echo "MultiQC: $OUTPUT_ROOT/SampleSheet/multiqc/$RUN.multiqc.html"
+   echo "Success: wgs_prism run for $RUN completed. Outputs under $OUTPUT_ROOT/ :"
+   echo "  - SampleSheet/multiqc/$RUN.multiqc.html : MultiQC report (open this first)"
+   echo "  - SampleSheet/multiqc/multiqc_data/     : MultiQC parsed data (tsv)"
+   echo "  - SampleSheet/bclconvert/               : demultiplexed FASTQ files (.fastq.gz)"
+   echo "  - SampleSheet/bclconvert/Reports/       : bcl-convert demultiplexing reports"
+   echo "  - SampleSheet/fastqc_run/fastqc/        : per-sample FastQC reports"
+   echo "  - logs/                                 : per-step run logs"
+   echo "  - benchmarks/                           : per-step runtime/memory benchmarks"
 
 }
 
