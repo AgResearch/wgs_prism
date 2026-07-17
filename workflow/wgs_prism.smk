@@ -165,11 +165,16 @@ rule run_fastqc:
         find {input.demux} -name '*.fq.gz' ! -name '*undecoded*' \
             | xargs fastqc -t {threads} --noextract -o {output.fastqc} > {log} 2>&1
 
-        success_landmark=$(ls {output.fastqc}/*_fastqc.zip 2>/dev/null | head -1)
+        # Every input must have produced a report. Counting rather than probing
+        # for one landmark file also catches a partial run. Do not pipe a long
+        # `ls` into `head` here: it takes SIGPIPE, and `set -o pipefail` then
+        # fails the rule after a perfectly good FastQC run.
+        n_expected=$(find {input.demux} -name '*.fq.gz' ! -name '*undecoded*' | wc -l)
+        n_reports=$(find {output.fastqc} -name '*_fastqc.zip' | wc -l)
 
-        if [ -z "$success_landmark" ]
+        if [ "$n_reports" -ne "$n_expected" ]
         then
-            echo "error: fastqc did not generate any reports in {output.fastqc}."
+            echo "error: fastqc produced $n_reports reports in {output.fastqc}, expected $n_expected."
             exit 1
         else
             exit 0
