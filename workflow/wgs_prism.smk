@@ -1,6 +1,6 @@
-# 2024 Benjamin J Perry
+# 2026 Benjamin J Perry
 # MIT License
-# Copyright (c) 2024 Benjamin J Perry
+# Copyright (c) 2026 Benjamin J Perry
 # Version: 1.0
 # Maintainer: Benjamin J Perry
 # Email: ben.perry@agresearch.co.nz
@@ -10,173 +10,202 @@ configfile: "config/pipeline_config.yaml"
 
 
 import os
-import pandas as pd
 
 # config dictionary values to be defined on running snakemake with --config flag
 
+RUN = config["RUN"]
+LANE = config["LANE"]
+
+# MGI emits one multiplexed fastq per lane, with the barcodes still on the reads.
+fastq_in = os.path.join(config["IN_ROOT"], RUN, LANE, f"{RUN}_{LANE}_read.fq.gz")
+run_info_in = os.path.join(
+    config["IN_ROOT"], RUN, "Metrics", f"{RUN}_RunInfoMetrics.csv"
+)
+
+demux_dir = os.path.join(config["OUT_ROOT"], "splitbarcode")
+fastqc_dir = os.path.join(config["OUT_ROOT"], "fastqc")
+
+# splitBarcode names its outputs <RUN>_<LANE>_<Sample_ID>.fq.gz from the read
+# header, so FastQC reports (and therefore MultiQC samples) carry this prefix.
+sample_prefix = f"{RUN}_{LANE}_"
+
+# splitBarcode is not packaged for bioconda; it comes from the module system.
+SPLITBARCODE_ROOT = "/agr/persist/apps/eri_rocky8/software/MGI-splitBarcode/2.0.0-4"
+
+
 rule targets:
     input:
-        os.path.join(
-            config["OUT_ROOT"],
-            "SampleSheet",
-            "multiqc",
-            f"{config['RUN']}.multiqc.html",
-        ),
+        os.path.join(config["OUT_ROOT"], "multiqc", f"{RUN}.multiqc.html"),
 
 
-# Lives outside the bclconvert output dir so it survives Snakemake deleting
-# that directory() output on job failure. Note bclconvert_out itself is only
-# created as a side effect of preparing the nested reports/fastq_complete
-# outputs below (Snakemake pre-creates a directory() output's parent, not the
-# directory itself) — which is also why --force is required in the shell:
-# the dir already exists (empty) by the time bcl-convert runs.
-bclconvert_logs_persist = os.path.join(config["OUT_ROOT"], "logs", "bclconvert_Logs")
+localrules:
+    prepare_barcodes,
+    barcodestat_to_mqc,
+    run_multiqc,
 
 
-checkpoint run_bclconvert:
+rule prepare_barcodes:
     input:
-        run_in=os.path.join(config["IN_ROOT"], config["RUN"]),
-        sample_sheet=os.path.join(config["OUT_ROOT"], "SampleSheet.csv"),
+        sample_sheet=config["SAMPLE_SHEET"],
+        run_info=run_info_in,
+        fastq=fastq_in,
     output:
-        bclconvert_out=directory(
-            os.path.join(config["OUT_ROOT"], "SampleSheet", "bclconvert")
-        ),
-        reports=directory(
-            os.path.join(config["OUT_ROOT"], "SampleSheet", "bclconvert", "Reports")
-        ),
-        fastq_complete=os.path.join(
-            config["OUT_ROOT"],
-            "SampleSheet",
-            "bclconvert",
-            "Logs",
-            "FastqComplete.txt",
-        ),
+        barcodes=os.path.join(config["OUT_ROOT"], f"{RUN}.barcode"),
+        params=os.path.join(config["OUT_ROOT"], "splitbarcode_params.json"),
     log:
-        os.path.join(config["OUT_ROOT"], "logs", "run_bclconvert.log"),
+        os.path.join(config["OUT_ROOT"], "logs", "prepare_barcodes.log"),
     benchmark:
-        os.path.join(config["OUT_ROOT"], "benchmarks", "run_bclconvert.txt")
-    threads: 24
+        os.path.join(config["OUT_ROOT"], "benchmarks", "prepare_barcodes.txt")
+    params:
+        mismatch=config["barcode_mismatch"],
+    shell:
+        """
+        python3 workflow/scripts/prepare_barcodes.py \
+            --sample-sheet {input.sample_sheet} \
+            --run-info {input.run_info} \
+            --fastq {input.fastq} \
+            --out-barcodes {output.barcodes} \
+            --out-params {output.params} \
+            --mismatch {params.mismatch} > {log} 2>&1
+        """
+
+
+# Lives outside the splitBarcode output dir so it survives Snakemake deleting
+# that directory() output on job failure. Note demux_dir itself is only created
+# as a side effect of preparing the nested BarcodeStat.txt output below
+# (Snakemake pre-creates a directory() output's parent, not the directory
+# itself) — splitBarcode writes happily into the resulting empty directory.
+splitbarcode_logs_persist = os.path.join(config["OUT_ROOT"], "logs", "splitbarcode_Logs")
+
+
+rule run_splitbarcode:
+    input:
+        fastq=fastq_in,
+        barcodes=os.path.join(config["OUT_ROOT"], f"{RUN}.barcode"),
+        params=os.path.join(config["OUT_ROOT"], "splitbarcode_params.json"),
+    output:
+        demux=directory(demux_dir),
+        # Declared explicitly so barcodestat_to_mqc can depend on it directly.
+        barcodestat=os.path.join(demux_dir, "BarcodeStat.txt"),
+    log:
+        os.path.join(config["OUT_ROOT"], "logs", "run_splitbarcode.log"),
+    benchmark:
+        os.path.join(config["OUT_ROOT"], "benchmarks", "run_splitbarcode.txt")
+    threads: 16
     resources:
-        mem_gb=lambda wildcards, attempt: 96 + ((attempt - 1) * 24),
-        time=lambda wildcards, attempt: 180 + ((attempt - 1) * 480),
+        mem_gb=lambda wildcards, attempt: 120 + ((attempt - 1) * 40),
+        time=lambda wildcards, attempt: 480 + ((attempt - 1) * 480),
         partition="compute,hugemem,vgpu",
     shell:
         """
-        export PATH=/agr/persist/apps/src/b/BCL-Convert:$PATH
+        export PATH={SPLITBARCODE_ROOT}/bin:$PATH
+        export LD_LIBRARY_PATH={SPLITBARCODE_ROOT}/lib:$LD_LIBRARY_PATH
 
-        echo "bcl-convert version in use:" > {log}
-        bcl-convert -V >> {log} 2>&1
+        mkdir -p {output.demux}
+
+        # Build -b/-r from the validated params so the geometry lives in one
+        # place. Read at runtime rather than via a params: lambda, which
+        # Snakemake may evaluate before prepare_barcodes has written the file.
+        sb_args=$(python3 -c "
+import json
+p = json.load(open('{input.params}'))
+print(' '.join('-b %d %d %d' % tuple(b) for b in p['b']) + (' -r' if p['reverse'] else ''))
+")
+
+        echo "splitBarcode arguments: $sb_args" > {log}
         echo >> {log}
 
         # Capture exit status ourselves (Snakemake's `set -e` would otherwise
         # abort before the log-rescue step below runs on failure).
-        bcl_status=0
-        bcl-convert --force \
-            --bcl-input-directory {input.run_in} \
-            --sample-sheet {input.sample_sheet} \
-            --output-directory {output.bclconvert_out} >> {log} 2>&1 || bcl_status=$?
+        sb_status=0
+        splitBarcode -B {input.barcodes} \
+            -1 {input.fastq} \
+            $sb_args \
+            -t {threads} -m 100 \
+            -o {output.demux} >> {log} 2>&1 || sb_status=$?
 
-        # Rescue bcl-convert's Logs/ before Snakemake deletes the output dir on
-        # failure; `ls` guard avoids tripping `set -e` if Logs/ never appeared.
-        if ls {output.bclconvert_out}/Logs/*.log >/dev/null 2>&1; then
-            mkdir -p {bclconvert_logs_persist}
-            cp -f {output.bclconvert_out}/Logs/*.log {bclconvert_logs_persist}/
+        # Rescue splitBarcode's own logs before Snakemake deletes the output dir
+        # on failure; `ls` guard avoids tripping `set -e` if they never appeared.
+        if ls {output.demux}/log/* >/dev/null 2>&1; then
+            mkdir -p {splitbarcode_logs_persist}
+            cp -rf {output.demux}/log/* {splitbarcode_logs_persist}/ 2>/dev/null || true
 
             echo >> {log}
-            echo "===== bcl-convert Logs/ (preserved in {bclconvert_logs_persist}) =====" >> {log}
-            cat {output.bclconvert_out}/Logs/*.log >> {log}
+            echo "===== splitBarcode log/ (preserved in {splitbarcode_logs_persist}) =====" >> {log}
+            cat {output.demux}/log/* >> {log} 2>/dev/null || true
         fi
 
-        exit $bcl_status
+        exit $sb_status
         """
-
-
-fastqc_out_root = os.path.join(
-    config["OUT_ROOT"], "SampleSheet", "fastqc_run", "fastqc"
-)
 
 
 rule run_fastqc:
     input:
-        fastq=os.path.join(
-            config["OUT_ROOT"], "SampleSheet", "bclconvert", "{sample}.fastq.gz"
-        ),
+        demux=demux_dir,
     output:
-        zip=os.path.join(
-            config["OUT_ROOT"],
-            "SampleSheet",
-            "fastqc_run",
-            "fastqc",
-            "{sample}_fastqc.zip",
-        ),
-        html=os.path.join(
-            config["OUT_ROOT"],
-            "SampleSheet",
-            "fastqc_run",
-            "fastqc",
-            "{sample}_fastqc.html",
-        ),
+        fastqc=directory(fastqc_dir),
     log:
-        os.path.join(config["OUT_ROOT"], "logs", "run_fastqc.{sample}.log"),
+        os.path.join(config["OUT_ROOT"], "logs", "run_fastqc.log"),
     conda:
         "envs/fastqc-0.12.1.yaml"
     benchmark:
-        os.path.join(config["OUT_ROOT"], "benchmarks", "run_fastqc.{sample}.txt")
-    threads: 12
+        os.path.join(config["OUT_ROOT"], "benchmarks", "run_fastqc.txt")
+    threads: 32
     resources:
-        mem_gb=lambda wildcards, attempt: 16 + ((attempt - 1) * 32),
-        time=lambda wildcards, attempt: 180 + ((attempt - 1) * 720),
+        mem_gb=lambda wildcards, attempt: 32 + ((attempt - 1) * 32),
+        time=lambda wildcards, attempt: 120 + ((attempt - 1) * 240),
         partition="compute,hugemem,vgpu",
     shell:
-        """ 
-        
-        mkdir -p {fastqc_out_root}
+        """
+        mkdir -p {output.fastqc}
 
-        fastqc -t {threads} -o {fastqc_out_root} {input.fastq} > {log} 2>&1
+        # FastQC does not recurse a directory, so glob. Exclude undecoded (the
+        # MGI equivalent of Illumina's Undetermined), and pipe via xargs rather
+        # than expanding several thousand paths onto one command line.
+        find {input.demux} -name '*.fq.gz' ! -name '*undecoded*' \
+            | xargs fastqc -t {threads} --noextract -o {output.fastqc} > {log} 2>&1
 
-        success_landmark={output.zip}
+        success_landmark=$(ls {output.fastqc}/*_fastqc.zip 2>/dev/null | head -1)
 
-        if [ ! -f $success_landmark ]
+        if [ -z "$success_landmark" ]
         then
-            echo "error: fastqc  did not generate the expected output file {output.zip}. "
+            echo "error: fastqc did not generate any reports in {output.fastqc}."
             exit 1
         else
             exit 0
         fi
-
         """
 
 
-def get_fastq_reports(wildcards, extension=".fastq.gz"):
-    directory = checkpoints.run_bclconvert.get().output["bclconvert_out"]
-    files = [
-        os.path.basename(f)
-        for f in os.listdir(directory)
-        if f.endswith(extension) and "Undetermined" not in f
-    ]
-    basenames = [f.replace(extension, "") for f in files]
-    return expand(
-        os.path.join(config["OUT_ROOT"], "SampleSheet", "fastqc_run", "fastqc", "{sample}_fastqc.zip"), 
-        sample=basenames
-    )
+rule barcodestat_to_mqc:
+    input:
+        barcodestat=os.path.join(demux_dir, "BarcodeStat.txt"),
+    output:
+        mqc=os.path.join(config["OUT_ROOT"], "multiqc", "splitbarcode_mqc.tsv"),
+    log:
+        os.path.join(config["OUT_ROOT"], "logs", "barcodestat_to_mqc.log"),
+    params:
+        sample_prefix=sample_prefix,
+    shell:
+        """
+        python3 workflow/scripts/barcodestat_to_mqc.py \
+            --barcodestat {input.barcodestat} \
+            --out {output.mqc} \
+            --sample-prefix {params.sample_prefix} > {log} 2>&1
+        """
 
 
-multiqc_data_dir_path = os.path.join(
-    config["OUT_ROOT"], "SampleSheet", "multiqc", "multiqc_data"
-)
+multiqc_data_dir_path = os.path.join(config["OUT_ROOT"], "multiqc", "multiqc_data")
 
-localrules: run_multiqc
+
 rule run_multiqc:
     input:
-        fastqc_reports=lambda wildcards: get_fastq_reports(wildcards),
-        bclconvert_reports=os.path.join(config["OUT_ROOT"], "SampleSheet", "bclconvert", "Reports"),
-    output:
-        report=os.path.join(
-            config["OUT_ROOT"],
-            "SampleSheet",
-            "multiqc",
-            f"{config['RUN']}.multiqc.html",
+        fastqc=fastqc_dir,
+        splitbarcode_mqc=os.path.join(
+            config["OUT_ROOT"], "multiqc", "splitbarcode_mqc.tsv"
         ),
+    output:
+        report=os.path.join(config["OUT_ROOT"], "multiqc", f"{RUN}.multiqc.html"),
     log:
         os.path.join(config["OUT_ROOT"], "logs", "run_multiqc.log"),
     conda:
@@ -188,5 +217,5 @@ rule run_multiqc:
         multiqc_config=config["multiqc_config"],
     shell:
         """
-        multiqc --interactive --outdir {multiqc_data_dir_path} --filename {output.report} --force -c {params.multiqc_config} --data-dir --data-format tsv {input.bclconvert_reports} {input.fastqc_reports} > {log} 2>&1
+        multiqc --interactive --outdir {multiqc_data_dir_path} --filename {output.report} --force -c {params.multiqc_config} --data-dir --data-format tsv {input.splitbarcode_mqc} {input.fastqc} > {log} 2>&1
         """

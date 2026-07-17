@@ -5,18 +5,30 @@
 
 ### HPC data organsiation global variables; passed via --config in practise ###
 # RUN must be passed via --config parameter at runtime
-# eg. 231019_A01439_0219_AHNKGFDRX3
+# The MGI flowcell ID, eg. FT150034703
 # AKA. $RUN
-RUN: "231005_A01439_0216_AHL7NKDRX3"
-# eg. /dataset/2023_illumina_sequencing_[a-z]/active/$RUN
+RUN: "FT150034703"
+# The lane to process. MGI G99 / T1+ writes one multiplexed fastq per lane.
+# Multi-lane runs are future work; one lane is processed per invocation.
+LANE: "L01"
+# eg. /projects/2026_sequence_production_[a-z]/run_data/$RUN
 # AKA. $SEQ_ROOT
+# Derived inputs:
+#   fastq    : {IN_ROOT}/{RUN}/{LANE}/{RUN}_{LANE}_read.fq.gz
+#   run info : {IN_ROOT}/{RUN}/Metrics/{RUN}_RunInfoMetrics.csv
 IN_ROOT: "/projects/2026_sequence_production_a/run_data"
-# eg. /datasets/2023_illumina_sequencing_[a-z]/scratch/postprocessing/illumina/novaseq/$RUN
+# eg. /scratch/2026_sequence_production_[a-z]/postprocessing/mgi/$RUN
 # AKA. $OUTPUT_ROOT
-# OUTPUT_ROOT must be passed via --config parameter at runtime
-OUT_ROOT: "/projects/2026_sequence_production_a/postprocessing/illumina"
+# OUT_ROOT must be passed via --config parameter at runtime
+OUT_ROOT: "/scratch/2026_sequence_production_a/postprocessing/mgi"
+
+# The Illumina-format sample sheet. Unlike Illumina runs this does not live in
+# the run folder on MGI, so it is passed via --config at runtime.
+SAMPLE_SHEET: "/projects/2023-bjp-sandbox/testing/samplesheets/FT150034703.csv"
+
+### splitBarcode configuration ###
+# Mismatches tolerated per barcode when demultiplexing.
+barcode_mismatch: 1
 
 ### multiQC configuration ###
 multiqc_config: "resources/multiQC_config.yaml"
-
-
