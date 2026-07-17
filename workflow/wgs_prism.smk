@@ -70,11 +70,14 @@ rule prepare_barcodes:
         """
 
 
-# Lives outside the splitBarcode output dir so it survives Snakemake deleting
-# that directory() output on job failure. Note demux_dir itself is only created
-# as a side effect of preparing the nested BarcodeStat.txt output below
-# (Snakemake pre-creates a directory() output's parent, not the directory
-# itself) — splitBarcode writes happily into the resulting empty directory.
+# splitBarcode writes its own log to ./log/ relative to the working directory,
+# not to -o. Running it from here therefore keeps that log outside the
+# directory() output (so it survives Snakemake deleting that output on failure)
+# and keeps it out of the checkout, which is the working directory otherwise.
+# Note demux_dir itself is only created as a side effect of preparing the
+# nested BarcodeStat.txt output below (Snakemake pre-creates a directory()
+# output's parent, not the directory itself) — splitBarcode writes happily into
+# the resulting empty directory.
 splitbarcode_logs_persist = os.path.join(config["OUT_ROOT"], "logs", "splitbarcode_Logs")
 
 
@@ -102,6 +105,12 @@ rule run_splitbarcode:
         export LD_LIBRARY_PATH={SPLITBARCODE_ROOT}/lib:$LD_LIBRARY_PATH
 
         mkdir -p {output.demux}
+        mkdir -p {splitbarcode_logs_persist}
+
+        # splitBarcode is run from the log dir below, so give it absolute paths.
+        sb_barcodes=$(realpath {input.barcodes})
+        sb_fastq=$(realpath {input.fastq})
+        sb_demux=$(realpath {output.demux})
 
         # Build -b/-r from the validated params so the geometry lives in one
         # place. Read at runtime rather than via a params: lambda, which
@@ -116,23 +125,21 @@ print(' '.join('-b %d %d %d' % tuple(b) for b in p['b']) + (' -r' if p['reverse'
         echo >> {log}
 
         # Capture exit status ourselves (Snakemake's `set -e` would otherwise
-        # abort before the log-rescue step below runs on failure).
+        # abort before the log below is appended on failure).
         sb_status=0
-        splitBarcode -B {input.barcodes} \
-            -1 {input.fastq} \
+        ( cd {splitbarcode_logs_persist} && splitBarcode -B $sb_barcodes \
+            -1 $sb_fastq \
             $sb_args \
             -t {threads} -m 100 \
-            -o {output.demux} >> {log} 2>&1 || sb_status=$?
+            -o $sb_demux ) >> {log} 2>&1 || sb_status=$?
 
-        # Rescue splitBarcode's own logs before Snakemake deletes the output dir
-        # on failure; `ls` guard avoids tripping `set -e` if they never appeared.
-        if ls {output.demux}/log/* >/dev/null 2>&1; then
-            mkdir -p {splitbarcode_logs_persist}
-            cp -rf {output.demux}/log/* {splitbarcode_logs_persist}/ 2>/dev/null || true
-
+        # splitBarcode's own log/ is already outside the directory() output, so
+        # it survives failure; surface it in the rule log too. The `ls` guard
+        # avoids tripping `set -e` if it never appeared.
+        if ls {splitbarcode_logs_persist}/log/* >/dev/null 2>&1; then
             echo >> {log}
-            echo "===== splitBarcode log/ (preserved in {splitbarcode_logs_persist}) =====" >> {log}
-            cat {output.demux}/log/* >> {log} 2>/dev/null || true
+            echo "===== splitBarcode log/ (preserved in {splitbarcode_logs_persist}/log) =====" >> {log}
+            cat {splitbarcode_logs_persist}/log/* >> {log} 2>/dev/null || true
         fi
 
         exit $sb_status

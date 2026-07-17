@@ -4,3 +4,6 @@ gbs_prism.log
 .snakemake/
 .psij/
 .*
+__pycache__/
+*.pyc
+log/
