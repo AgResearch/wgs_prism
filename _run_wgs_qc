@@ -199,8 +199,9 @@ run_sequencer_qc() {
   Using sample sheet $OUTPUT_ROOT/SampleSheet.csv for splitBarcode.
   Please review and edit this sample sheet, making any necessary changes for batch processing.
 
-  The [Data] section needs Sample_ID, index (i7) and index2 (i5). The barcode
-  file for splitBarcode is generated from these as index+index2.
+  The [Data] section needs Lane, Sample_ID, index (i7) and index2 (i5). The
+  barcode file for splitBarcode is generated from these as index+index2,
+  filtered to samples whose Lane matches the lane being processed ($LANE).
 
   Unlike bcl-convert, no OverrideCycles or other geometry needs to be declared:
   the read geometry is measured from the fastq itself and then validated against
@@ -209,8 +210,10 @@ run_sequencer_qc() {
   rather than produce a bad demultiplex.
 
   Notes:
+    - Every MGI sample sheet requires a Lane column (plain digit, e.g. '1' for
+      $LANE); a row's index/index2 only demultiplex the fastq for its own lane.
     - All index and index2 sequences must be the same length within a run.
-    - Sample_ID and the index+index2 pair must both be unique.
+    - Sample_ID and the index+index2 pair must both be unique within a lane.
     - Remove any samples not part of this batch.
   "
    echo "Press Enter to review sample sheet in vim."

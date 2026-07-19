@@ -21,6 +21,7 @@ import argparse
 import csv
 import gzip
 import json
+import re
 import sys
 from collections import Counter
 
@@ -30,15 +31,33 @@ VALID_BASES = set("ACGTN")
 # MGI requires barcodes longer than 2 nt.
 MIN_BARCODE_LEN = 3
 
+# Sample sheet Lane values are plain digits ("1"); pipeline config and
+# on-disk paths use Illumina-style "L0N". Both must resolve to the same lane.
+LANE_RE = re.compile(r"^[Ll]?0*(\d+)$")
+
 
 class GeometryError(Exception):
     """Raised when the run geometry cannot be trusted to demultiplex."""
 
 
-def parse_sample_sheet(path):
-    """Return [(Sample_ID, index, index2)] from the [Data] section.
+def normalize_lane(value):
+    """Normalize a lane identifier ("L01", "1", "01") to a comparable int."""
+    match = LANE_RE.match(value.strip())
+    if not match:
+        raise GeometryError(
+            f"unrecognised lane identifier {value!r}; expected e.g. '1' or 'L01'"
+        )
+    return int(match.group(1))
 
-    The sheet is written by Illumina tooling and carries a UTF-8 BOM.
+
+def parse_sample_sheet(path, lane):
+    """Return [(Sample_ID, index, index2)] for `lane` from the [Data] section.
+
+    The sheet is written by Illumina tooling and carries a UTF-8 BOM. A Lane
+    column is required for every MGI sample sheet: MGI writes one
+    multiplexed fastq per lane, lanes commonly reuse the same barcode set,
+    and an unfiltered multi-lane sheet would violate the Sample_ID/barcode
+    uniqueness splitBarcode requires.
     """
     with open(path, newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.reader(handle))
@@ -56,24 +75,35 @@ def parse_sample_sheet(path):
         id_col = header.index("Sample_ID")
         i7_col = header.index("index")
         i5_col = header.index("index2")
+        lane_col = header.index("Lane")
     except ValueError:
         raise GeometryError(
-            f"[Data] header of {path} must contain Sample_ID, index and index2; got {header}"
+            f"[Data] header of {path} must contain Sample_ID, index, index2 and "
+            f"Lane; got {header}"
         )
 
+    target_lane = normalize_lane(lane)
     samples = []
+    seen_lanes = set()
     for row in rows[data_start + 1 :]:
         # Trailing commas pad short rows; a row with an empty Sample_ID is padding.
         if not row or not row[0].strip():
             continue
         if row[0].strip().startswith("["):
             break
+        row_lane = normalize_lane(row[lane_col])
+        seen_lanes.add(row_lane)
+        if row_lane != target_lane:
+            continue
         samples.append(
             (row[id_col].strip(), row[i7_col].strip().upper(), row[i5_col].strip().upper())
         )
 
     if not samples:
-        raise GeometryError(f"[Data] section of {path} contains no samples")
+        raise GeometryError(
+            f"no samples for lane {lane!r} in {path}; sheet contains lane(s) "
+            f"{sorted(seen_lanes)}"
+        )
     return samples
 
 
@@ -227,6 +257,11 @@ def check_mgi_constraints(records):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sample-sheet", required=True)
+    parser.add_argument(
+        "--lane",
+        required=True,
+        help="lane to filter the sample sheet's Lane column to, e.g. 'L01' (matches config LANE)",
+    )
     parser.add_argument("--run-info", required=True)
     parser.add_argument("--fastq", required=True)
     parser.add_argument("--out-barcodes", required=True)
@@ -252,7 +287,7 @@ def main():
     )
     args = parser.parse_args()
 
-    samples = parse_sample_sheet(args.sample_sheet)
+    samples = parse_sample_sheet(args.sample_sheet, args.lane)
     run_info = parse_run_info(args.run_info)
     geometry = resolve_geometry(samples, run_info, args.fastq)
 

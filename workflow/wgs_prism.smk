@@ -58,10 +58,12 @@ rule prepare_barcodes:
         os.path.join(config["OUT_ROOT"], "benchmarks", "prepare_barcodes.txt")
     params:
         mismatch=config["barcode_mismatch"],
+        lane=LANE,
     shell:
         """
         python3 workflow/scripts/prepare_barcodes.py \
             --sample-sheet {input.sample_sheet} \
+            --lane {params.lane} \
             --run-info {input.run_info} \
             --fastq {input.fastq} \
             --out-barcodes {output.barcodes} \
