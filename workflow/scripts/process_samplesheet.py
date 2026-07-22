@@ -167,7 +167,7 @@ class Samplesheet(NamedTuple):
     @property
     def header(self) -> Dict[str, str]:
         """``[Header]`` as key -> value (e.g. ``Flowcell``, ``Instrument``)."""
-        out = {}  # type: Dict[str, str]
+        out: Dict[str, str] = {}
         for row in self.sections.get("Header", []):
             if row and row[0]:
                 out[row[0]] = row[1] if len(row) > 1 else ""
@@ -185,9 +185,10 @@ def read_samplesheet(path: str) -> Samplesheet:
     if not os.path.exists(path):
         raise SamplesheetError("sample sheet does not exist: {}".format(path))
 
-    sections = {}  # type: Dict[str, List[List[str]]]
-    order = []  # type: List[str]
-    current = None  # type: Optional[str]
+    # sections is a plain dict, which preserves insertion order, so the order
+    # the sheet declares its sections in survives without tracking it here.
+    sections: Dict[str, List[List[str]]] = {}
+    current: Optional[str] = None
 
     # newline="" lets csv handle the CRLF sheets without leaving stray \r.
     with open(path, "r", newline="", encoding="utf-8-sig") as handle:
@@ -199,7 +200,6 @@ def read_samplesheet(path: str) -> Samplesheet:
             if match:
                 current = match.group("name").strip()
                 sections.setdefault(current, [])
-                order.append(current)
                 continue
             if current is None:
                 raise SamplesheetError(
@@ -213,7 +213,7 @@ def read_samplesheet(path: str) -> Samplesheet:
         raise SamplesheetError("{}: [Data] section is empty".format(path))
 
     columns = sections["Data"][0]
-    data = []  # type: List[Dict[str, str]]
+    data: List[Dict[str, str]] = []
     for row in sections["Data"][1:]:
         # Pad short rows rather than zipping them away, so a missing trailing
         # field reads as empty instead of shifting every column left.
@@ -286,7 +286,7 @@ def lane_number(lane) -> int:
 def lanes_in_samplesheet(ss: Samplesheet) -> List[str]:
     """Sorted, deduplicated lane labels across every ``[Data]`` row."""
     column = _column(ss, "Lanes", "Lane")
-    found = set()  # type: Set[int]
+    found: Set[int] = set()
     for row in ss.data:
         found.update(parse_lanes(row[column]))
     return [lane_label(lane) for lane in sorted(found)]
@@ -352,13 +352,13 @@ def barcode_entries(
     id_column = _column(ss, "Sample_ID", "SampleID", "Sample_Name")
     index_column = _column(ss, "index", "Index", "I7_Index", "index1")
     try:
-        index2_column = _column(ss, "index2", "Index2", "I5_Index")  # type: Optional[str]
+        index2_column: Optional[str] = _column(ss, "index2", "Index2", "I5_Index")
     except SamplesheetError:
         index2_column = None
 
-    entries = []  # type: List[Tuple[str, str]]
-    lengths = set()  # type: Set[Tuple[int, int]]
-    seen = set()  # type: Set[str]
+    entries: List[Tuple[str, str]] = []
+    lengths: Set[Tuple[int, int]] = set()
+    seen: Set[str] = set()
 
     for row in rows:
         sample_id = row[id_column].strip()
@@ -408,7 +408,7 @@ def index_pairs(ss: Samplesheet, lane) -> List[Tuple[str, str]]:
     rows = samples_for_lane(ss, lane)
     index_column = _column(ss, "index", "Index", "I7_Index", "index1")
     try:
-        index2_column = _column(ss, "index2", "Index2", "I5_Index")  # type: Optional[str]
+        index2_column: Optional[str] = _column(ss, "index2", "Index2", "I5_Index")
     except SamplesheetError:
         index2_column = None
     return [
@@ -492,7 +492,7 @@ def read_files(run_dir: str, run: str, lane) -> ReadFiles:
 
 def _sequence_lines(fastq: str, n_reads: int) -> List[str]:
     """The first ``n_reads`` sequence lines of a gzipped fastq."""
-    lines = []  # type: List[str]
+    lines: List[str] = []
     with gzip.open(fastq, "rt") as handle:
         for number, line in enumerate(handle):
             if number % 4 != 1:
@@ -507,7 +507,7 @@ def _sequence_lines(fastq: str, n_reads: int) -> List[str]:
 
 def read_length(fastq: str, n_reads: int = 20) -> int:
     """Modal sequence-line length of the first few reads."""
-    counts = {}  # type: Dict[int, int]
+    counts: Dict[int, int] = {}
     for line in _sequence_lines(fastq, n_reads):
         counts[len(line)] = counts.get(len(line), 0) + 1
     return max(counts.items(), key=lambda item: (item[1], item[0]))[0]
@@ -625,7 +625,7 @@ def _block_order(values: Dict[str, str]) -> Tuple[str, ...]:
     if not raw:
         return _T1_BLOCK_ORDER
 
-    order = []  # type: List[str]
+    order: List[str] = []
     for token in raw.split("-"):
         name = _normalise_key(token)
         if name.startswith("read"):
@@ -648,7 +648,7 @@ def read_bioinfo(path: str) -> BioInfo:
     if not os.path.exists(path):
         raise BioInfoError("BioInfo.csv does not exist: {}".format(path))
 
-    values = {}  # type: Dict[str, str]
+    values: Dict[str, str] = {}
     with open(path, "r", newline="", encoding="utf-8-sig") as handle:
         for row in csv.reader(handle):
             if not row or not row[0].strip():
@@ -920,7 +920,7 @@ def measure_layout(
     lines = _sequence_lines(fastq, n_reads)
     # Use only the modal read length: a handful of trimmed or truncated reads
     # must not move the anchor for everything else.
-    counts = {}  # type: Dict[int, int]
+    counts: Dict[int, int] = {}
     for line in lines:
         counts[len(line)] = counts.get(len(line), 0) + 1
     read_len = max(counts.items(), key=lambda item: (item[1], item[0]))[0]
@@ -942,9 +942,9 @@ def measure_layout(
     else:
         orders = SLOT_ORDERS
 
-    scored = {}  # type: Dict[Tuple[Tuple[str, str], str], int]
-    geometry = {}  # type: Dict[str, Tuple[int, Optional[int]]]
-    failures = []  # type: List[str]
+    scored: Dict[Tuple[Tuple[str, str], str], int] = {}
+    geometry: Dict[str, Tuple[int, Optional[int]]] = {}
+    failures: List[str] = []
 
     for order in orders:
         slot1_len, slot2_len = (
