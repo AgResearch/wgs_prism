@@ -36,7 +36,7 @@ rule covers both platforms:
     the sample sheet's ``index`` is the **first** barcode block on the
     machine, ``index2`` the **second**
 
-which is what makes the mapping look inverted if you only compare key names.
+The mapping therefore looks inverted if key names are compared alone.
 Verified against the hand-made ground truth for both platforms: G99
 ``FT150034703`` -> ``-b 100 8 1 -b 108 10 1``, T1+ ``DL100018479`` ->
 ``-b 100 10 1 -b 110 8 1``.
@@ -249,9 +249,8 @@ def parse_lanes(value: str) -> List[int]:
 
     ``"12"`` -> ``[1, 2]``, ``"34"`` -> ``[3, 4]``, ``"1"`` -> ``[1]``. This is
     membership, not equality: a row with ``Lanes=12`` belongs to L01 *and* L02.
-    Anything not made purely of non-zero digits is refused rather than guessed
-    at -- a comma- or dash-separated sheet is a sheet this code has not been
-    validated against.
+    Anything other than non-zero digits is refused rather than guessed at:
+    comma- and dash-separated sheets have not been validated against.
     """
     text = (value or "").strip()
     if not text:
@@ -340,9 +339,9 @@ def barcode_entries(
     which index the instrument sequenced first, both as resolved by
     ``measure_layout``. Everything the run does differently from the sheet is
     absorbed here, in the barcode file's *content*, so the ``-b`` offsets stay
-    as the geometry gives them and splitBarcode compares like with like. (Its
-    own ``-r`` flag is deliberately unused: it applies to the whole
-    concatenated barcode and cannot express a per-index difference.)
+    as the geometry gives them. (splitBarcode's own ``-r`` flag is deliberately
+    unused: it applies to the whole concatenated barcode and cannot express a
+    per-index difference.)
     """
     if slot_order not in SLOT_ORDERS:
         raise SamplesheetError(
@@ -675,7 +674,7 @@ def read_bioinfo(path: str) -> BioInfo:
         BARCODE: _bioinfo_int(values, "barcode_len"),
         DUAL_BARCODE: _bioinfo_int(values, "dual_barcode_len", required=False),
     }
-    # A zero-length block was not sequenced; dropping it here is what makes a
+    # A zero-length block was not sequenced. Dropping it here lets a
     # single-barcode run collapse to one -b without a special case.
     blocks = [
         BarcodeBlock(name=name, length=lengths[name])
@@ -850,8 +849,9 @@ def barcode_geometry(
 def _symmetric_pairs(pairs: Sequence[Tuple[str, str]]) -> int:
     """How many ``(index, index2)`` pairs also appear swapped in the same lane.
 
-    Every such pair is a sample whose reads are indistinguishable from another
-    sample's if the slot order is applied backwards -- see ``measure_layout``.
+    Applying the slot order backwards maps each of these onto a pair the lane
+    already contains, so the reads cannot tell the two orders apart -- see
+    ``measure_layout``.
     """
     unique = set(pairs)
     return sum(1 for first, second in unique if (second, first) in unique)
