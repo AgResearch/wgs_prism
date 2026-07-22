@@ -183,7 +183,7 @@ def read_samplesheet(path: str) -> Samplesheet:
     stripped, and ``[Data]`` columns are addressed by name, never by position.
     """
     if not os.path.exists(path):
-        raise SamplesheetError("sample sheet does not exist: {}".format(path))
+        raise SamplesheetError(f"sample sheet does not exist: {path}")
 
     # sections is a plain dict, which preserves insertion order, so the order
     # the sheet declares its sections in survives without tracking it here.
@@ -203,14 +203,14 @@ def read_samplesheet(path: str) -> Samplesheet:
                 continue
             if current is None:
                 raise SamplesheetError(
-                    "{}: content before the first [Section] header: {!r}".format(path, row)
+                    f"{path}: content before the first [Section] header: {row!r}"
                 )
             sections[current].append(row)
 
     if "Data" not in sections:
-        raise SamplesheetError("{}: no [Data] section found".format(path))
+        raise SamplesheetError(f"{path}: no [Data] section found")
     if not sections["Data"]:
-        raise SamplesheetError("{}: [Data] section is empty".format(path))
+        raise SamplesheetError(f"{path}: [Data] section is empty")
 
     columns = sections["Data"][0]
     data: List[Dict[str, str]] = []
@@ -221,7 +221,7 @@ def read_samplesheet(path: str) -> Samplesheet:
         data.append(dict(zip(columns, padded)))
 
     if not data:
-        raise SamplesheetError("{}: [Data] section has a header but no sample rows".format(path))
+        raise SamplesheetError(f"{path}: [Data] section has a header but no sample rows")
 
     return Samplesheet(path=path, sections=sections, data=data, data_columns=columns)
 
@@ -233,9 +233,7 @@ def _column(ss: Samplesheet, *candidates: str) -> str:
         if candidate.lower() in lowered:
             return lowered[candidate.lower()]
     raise SamplesheetError(
-        "{}: [Data] has none of the expected columns {}; found {}".format(
-            ss.path, list(candidates), ss.data_columns
-        )
+        f"{ss.path}: [Data] has none of the expected columns {list(candidates)}; found {ss.data_columns}"
     )
 
 
@@ -257,17 +255,17 @@ def parse_lanes(value: str) -> List[int]:
         raise SamplesheetError("empty Lanes field")
     if not text.isdigit():
         raise SamplesheetError(
-            "Lanes field {!r} is not a digit string; expected e.g. '1', '12', '34'".format(value)
+            f"Lanes field {value!r} is not a digit string; expected e.g. '1', '12', '34'"
         )
     lanes = sorted({int(char) for char in text})
     if any(lane == 0 for lane in lanes):
-        raise SamplesheetError("Lanes field {!r} contains lane 0".format(value))
+        raise SamplesheetError(f"Lanes field {value!r} contains lane 0")
     return lanes
 
 
 def lane_label(lane: int) -> str:
     """``1`` -> ``"L01"``."""
-    return "L{:02d}".format(lane)
+    return f"L{lane:02d}"
 
 
 def lane_number(lane) -> int:
@@ -278,7 +276,7 @@ def lane_number(lane) -> int:
     if text[:1].upper() == "L":
         text = text[1:]
     if not text.isdigit():
-        raise SamplesheetError("cannot interpret lane {!r}".format(lane))
+        raise SamplesheetError(f"cannot interpret lane {lane!r}")
     return int(text)
 
 
@@ -298,9 +296,8 @@ def samples_for_lane(ss: Samplesheet, lane) -> List[Dict[str, str]]:
     rows = [row for row in ss.data if wanted in parse_lanes(row[column])]
     if not rows:
         raise SamplesheetError(
-            "{}: no samples for lane {}; lanes present: {}".format(
-                ss.path, lane_label(wanted), ", ".join(lanes_in_samplesheet(ss))
-            )
+            f"{ss.path}: no samples for lane {lane_label(wanted)}; "
+            f"lanes present: {', '.join(lanes_in_samplesheet(ss))}"
         )
     return rows
 
@@ -315,9 +312,7 @@ def _validate_index(seq: str, what: str, sample_id: str) -> str:
     bad = set(upper) - _VALID_BASES
     if bad:
         raise SamplesheetError(
-            "sample {}: {} contains non-ACGTN characters {}: {!r}".format(
-                sample_id, what, sorted(bad), seq
-            )
+            f"sample {sample_id}: {what} contains non-ACGTN characters {sorted(bad)}: {seq!r}"
         )
     return upper
 
@@ -345,7 +340,7 @@ def barcode_entries(
     """
     if slot_order not in SLOT_ORDERS:
         raise SamplesheetError(
-            "slot_order must be one of {}, got {!r}".format(list(SLOT_ORDERS), slot_order)
+            f"slot_order must be one of {list(SLOT_ORDERS)}, got {slot_order!r}"
         )
     rows = samples_for_lane(ss, lane)
     id_column = _column(ss, "Sample_ID", "SampleID", "Sample_Name")
@@ -362,16 +357,16 @@ def barcode_entries(
     for row in rows:
         sample_id = row[id_column].strip()
         if not sample_id:
-            raise SamplesheetError("{}: a row in lane {} has an empty Sample_ID".format(ss.path, lane))
+            raise SamplesheetError(f"{ss.path}: a row in lane {lane} has an empty Sample_ID")
         if sample_id in seen:
             raise SamplesheetError(
-                "{}: sample {} appears more than once in lane {}".format(ss.path, sample_id, lane)
+                f"{ss.path}: sample {sample_id} appears more than once in lane {lane}"
             )
         seen.add(sample_id)
 
         index = _validate_index(row[index_column], "index", sample_id)
         if not index:
-            raise SamplesheetError("{}: sample {} has an empty index".format(ss.path, sample_id))
+            raise SamplesheetError(f"{ss.path}: sample {sample_id} has an empty index")
         index2 = ""
         if index2_column is not None:
             index2 = _validate_index(row.get(index2_column, ""), "index2", sample_id)
@@ -381,8 +376,8 @@ def barcode_entries(
 
     if len(lengths) > 1:
         raise SamplesheetError(
-            "{}: lane {} mixes index lengths {}; splitBarcode needs one -b layout "
-            "for the whole lane".format(ss.path, lane_label(lane_number(lane)), sorted(lengths))
+            f"{ss.path}: lane {lane_label(lane_number(lane))} mixes index lengths "
+            f"{sorted(lengths)}; splitBarcode needs one -b layout for the whole lane"
         )
     return entries
 
@@ -426,7 +421,7 @@ def write_barcode_file(entries: Sequence[Tuple[str, str]], path: str) -> None:
         os.makedirs(parent, exist_ok=True)
     with open(path, "w") as handle:
         for sample_id, barcode in entries:
-            handle.write("{}\t{}\n".format(sample_id, barcode))
+            handle.write(f"{sample_id}\t{barcode}\n")
 
 
 # --------------------------------------------------------------------------
@@ -453,8 +448,8 @@ class ReadFiles(NamedTuple):
     def cli_args(self) -> str:
         """``-1 a.fq.gz`` or ``-1 a.fq.gz -2 b.fq.gz``."""
         if self.r2 is None:
-            return "-1 {}".format(self.r1)
-        return "-1 {} -2 {}".format(self.r1, self.r2)
+            return f"-1 {self.r1}"
+        return f"-1 {self.r1} -2 {self.r2}"
 
     @property
     def paths(self) -> List[str]:
@@ -469,9 +464,9 @@ def read_files(run_dir: str, run: str, lane) -> ReadFiles:
     """
     label = lane_label(lane_number(lane))
     lane_dir = os.path.join(run_dir, label)
-    single = os.path.join(lane_dir, "{}_{}_read.fq.gz".format(run, label))
-    first = os.path.join(lane_dir, "{}_{}_read_1.fq.gz".format(run, label))
-    second = os.path.join(lane_dir, "{}_{}_read_2.fq.gz".format(run, label))
+    single = os.path.join(lane_dir, f"{run}_{label}_read.fq.gz")
+    first = os.path.join(lane_dir, f"{run}_{label}_read_1.fq.gz")
+    second = os.path.join(lane_dir, f"{run}_{label}_read_2.fq.gz")
 
     if os.path.exists(first) and os.path.exists(second):
         return ReadFiles(r1=first, r2=second)
@@ -479,13 +474,11 @@ def read_files(run_dir: str, run: str, lane) -> ReadFiles:
         return ReadFiles(r1=single, r2=None)
     if os.path.exists(first) != os.path.exists(second):
         raise SamplesheetError(
-            "lane {}: found only one half of the paired-end pair in {} -- "
-            "refusing to demultiplex an incomplete pair".format(label, lane_dir)
+            f"lane {label}: found only one half of the paired-end pair in {lane_dir} -- "
+            "refusing to demultiplex an incomplete pair"
         )
     raise SamplesheetError(
-        "lane {}: no reads found. Expected one of:\n  {}\n  {} (+ _2)".format(
-            label, single, first
-        )
+        f"lane {label}: no reads found. Expected one of:\n  {single}\n  {first} (+ _2)"
     )
 
 
@@ -500,7 +493,7 @@ def _sequence_lines(fastq: str, n_reads: int) -> List[str]:
             if len(lines) >= n_reads:
                 break
     if not lines:
-        raise BarcodeLayoutError("no reads could be read from {}".format(fastq))
+        raise BarcodeLayoutError(f"no reads could be read from {fastq}")
     return lines
 
 
@@ -585,9 +578,7 @@ def bioinfo_path(run_dir: str, lane) -> str:
     if os.path.exists(at_root):
         return at_root
     raise BioInfoError(
-        "lane {}: no BioInfo.csv found. Expected one of:\n  {}\n  {}".format(
-            label, per_lane, at_root
-        )
+        f"lane {label}: no BioInfo.csv found. Expected one of:\n  {per_lane}\n  {at_root}"
     )
 
 
@@ -600,11 +591,11 @@ def _bioinfo_int(values: Dict[str, str], field: str, required: bool = True) -> i
             except ValueError:
                 # from None: the ValueError adds nothing the message lacks.
                 raise BioInfoError(
-                    "{} is not an integer: {!r}".format(field, text)
+                    f"{field} is not an integer: {text!r}"
                 ) from None
     if required:
         raise BioInfoError(
-            "no {} field; looked for {}".format(field, list(_BIOINFO_KEYS[field]))
+            f"no {field} field; looked for {list(_BIOINFO_KEYS[field])}"
         )
     return 0
 
@@ -635,17 +626,17 @@ def _block_order(values: Dict[str, str]) -> Tuple[str, ...]:
             order.append(BARCODE)
         else:
             raise BioInfoError(
-                "Sequence Order {!r} contains an unrecognised block {!r}".format(raw, token)
+                f"Sequence Order {raw!r} contains an unrecognised block {token!r}"
             )
     if not order:
-        raise BioInfoError("Sequence Order {!r} names no barcode blocks".format(raw))
+        raise BioInfoError(f"Sequence Order {raw!r} names no barcode blocks")
     return tuple(order)
 
 
 def read_bioinfo(path: str) -> BioInfo:
     """Parse a lane's ``BioInfo.csv`` into read lengths and barcode blocks."""
     if not os.path.exists(path):
-        raise BioInfoError("BioInfo.csv does not exist: {}".format(path))
+        raise BioInfoError(f"BioInfo.csv does not exist: {path}")
 
     values: Dict[str, str] = {}
     with open(path, "r", newline="", encoding="utf-8-sig") as handle:
@@ -682,7 +673,7 @@ def read_bioinfo(path: str) -> BioInfo:
         if lengths[name] > 0
     ]
     if not blocks:
-        raise BioInfoError("{}: no barcode cycles declared".format(path))
+        raise BioInfoError(f"{path}: no barcode cycles declared")
 
     return BioInfo(
         path=path,
@@ -751,47 +742,45 @@ class BarcodeLayout(NamedTuple):
         return self.declared_insert_len - self.offset == 1
 
     def describe(self) -> str:
-        blocks = " + ".join(
-            "{} {}".format(block.name, block.length) for block in self.blocks
-        )
+        blocks = " + ".join(f"{block.name} {block.length}" for block in self.blocks)
         slot1, slot2 = self.slot_lengths
         first, second = (
             ("index2", "index") if self.slot_order == INDEX2_FIRST else ("index", "index2")
         )
-        text = "{} {}: read {} bp = insert {} + [{}]; {} {} @ {}".format(
-            self.platform,
-            "PE (read 2)" if self.is_pe else "SE",
-            self.read_len,
-            self.offset,
-            blocks,
-            first,
-            slot1,
-            self.offset,
+        mode = "PE (read 2)" if self.is_pe else "SE"
+        declared = " (declared)" if self.slot_order_declared else ""
+        text = (
+            f"{self.platform} {mode}: read {self.read_len} bp = "
+            f"insert {self.offset} + [{blocks}]; {first} {slot1} @ {self.offset}"
         )
         if slot2:
-            text += ", {} {} @ {}".format(second, slot2, self.offset2)
-        text += "; orientation index={} index2={}; slot order {}{}".format(
-            self.orientation[0],
-            self.orientation[1],
-            self.slot_order,
-            " (declared)" if self.slot_order_declared else "",
+            text += f", {second} {slot2} @ {self.offset2}"
+        text += (
+            f"; orientation index={self.orientation[0]} index2={self.orientation[1]}"
+            f"; slot order {self.slot_order}{declared}"
         )
-        text += "; hit-rate {:.3f} (runner-up {:.3f}) over {} reads".format(
-            self.hit_rate, self.runner_up_rate, self.n_scanned
+        text += (
+            f"; hit-rate {self.hit_rate:.3f} (runner-up {self.runner_up_rate:.3f})"
+            f" over {self.n_scanned} reads"
         )
         if self.anchor_is_g99_fencepost:
-            text += "\n  note: BioInfo.csv declares {} cycles of insert against {} measured - " \
-                    "the usual G99 one-cycle overstatement; using the reads.".format(
-                        self.declared_insert_len, self.offset
-                    )
+            text += (
+                f"\n  note: BioInfo.csv declares {self.declared_insert_len} cycles of "
+                f"insert against {self.offset} measured - the usual G99 one-cycle "
+                "overstatement; using the reads."
+            )
         elif self.anchor_disagrees:
-            text += "\n  WARNING: BioInfo.csv declares {} cycles of insert but the reads give {} - " \
-                    "that is not the known G99 off-by-one; check the run before trusting " \
-                    "this lane.".format(self.declared_insert_len, self.offset)
+            text += (
+                f"\n  WARNING: BioInfo.csv declares {self.declared_insert_len} cycles "
+                f"of insert but the reads give {self.offset} - that is not the known "
+                "G99 off-by-one; check the run before trusting this lane."
+            )
         if self.slot_order_declared and self.symmetric_pairs:
-            text += "\n  note: {} index pairs in this lane are symmetric, so the slot order " \
-                    "cannot be checked against the reads - it rests on the declared " \
-                    "BARCODE_SLOT_ORDER.".format(self.symmetric_pairs)
+            text += (
+                f"\n  note: {self.symmetric_pairs} index pairs in this lane are "
+                "symmetric, so the slot order cannot be checked against the reads - "
+                "it rests on the declared BARCODE_SLOT_ORDER."
+            )
         return text
 
 
@@ -813,18 +802,17 @@ def barcode_geometry(
     cycles = bio.barcode_cycles
     if read_len <= cycles:
         raise BarcodeLayoutError(
-            "reads are {} bp but {} declares {} barcode cycles - "
-            "there is no insert left".format(read_len, bio.path, cycles)
+            f"reads are {read_len} bp but {bio.path} declares {cycles} barcode cycles - "
+            "there is no insert left"
         )
 
     offset = read_len - cycles
     first_block = bio.blocks[0]
     if index_len > first_block.length:
         raise BarcodeLayoutError(
-            "the sheet's index is {} bases but {} sequenced only {} cycles for "
-            "the first barcode block ({})".format(
-                index_len, bio.path, first_block.length, first_block.name
-            )
+            f"the sheet's index is {index_len} bases but {bio.path} sequenced only "
+            f"{first_block.length} cycles for the first barcode block "
+            f"({first_block.name})"
         )
 
     if not index2_len:
@@ -832,16 +820,15 @@ def barcode_geometry(
 
     if len(bio.blocks) < 2:
         raise BarcodeLayoutError(
-            "the sheet has a dual index but {} declares only one barcode block "
-            "({} {} cycles)".format(bio.path, first_block.name, first_block.length)
+            f"the sheet has a dual index but {bio.path} declares only one barcode block "
+            f"({first_block.name} {first_block.length} cycles)"
         )
     second_block = bio.blocks[1]
     if index2_len > second_block.length:
         raise BarcodeLayoutError(
-            "the sheet's index2 is {} bases but {} sequenced only {} cycles for "
-            "the second barcode block ({})".format(
-                index2_len, bio.path, second_block.length, second_block.name
-            )
+            f"the sheet's index2 is {index2_len} bases but {bio.path} sequenced only "
+            f"{second_block.length} cycles for the second barcode block "
+            f"({second_block.name})"
         )
     return offset, offset + first_block.length
 
@@ -903,17 +890,17 @@ def measure_layout(
     3. the slot order is undecidable and none was declared.
     """
     if not pairs:
-        raise BarcodeLayoutError("no indices supplied to check {}".format(fastq))
+        raise BarcodeLayoutError(f"no indices supplied to check {fastq}")
     if slot_order not in SLOT_ORDERS and slot_order != AUTO:
         raise BarcodeLayoutError(
-            "slot_order must be {} or {!r}, got {!r}".format(list(SLOT_ORDERS), AUTO, slot_order)
+            f"slot_order must be {list(SLOT_ORDERS)} or {AUTO!r}, got {slot_order!r}"
         )
 
     lengths = {(len(index), len(index2)) for index, index2 in pairs}
     if len(lengths) > 1:
         raise BarcodeLayoutError(
-            "lane mixes index lengths {}; splitBarcode needs one -b layout for "
-            "the whole lane.\n  fastq: {}".format(sorted(lengths), fastq)
+            f"lane mixes index lengths {sorted(lengths)}; splitBarcode needs one -b layout for "
+            f"the whole lane.\n  fastq: {fastq}"
         )
     index_len, index2_len = lengths.pop()
 
@@ -955,7 +942,7 @@ def measure_layout(
         except BarcodeLayoutError as error:
             # This order does not fit the blocks the instrument sequenced;
             # that is an answer, not a failure, unless no order fits.
-            failures.append("{}: {}".format(order, error))
+            failures.append(f"{order}: {error}")
             continue
         geometry[order] = (offset, offset2)
 
@@ -976,10 +963,11 @@ def measure_layout(
             scored[(orientation, order)] = hits
 
     if not scored:
+        # Joined into a local first: an f-string expression cannot contain a
+        # backslash before 3.12.
+        detail = "\n  ".join(failures)
         raise BarcodeLayoutError(
-            "no slot order fits the barcode blocks {} declares:\n  {}".format(
-                bio.path, "\n  ".join(failures)
-            )
+            f"no slot order fits the barcode blocks {bio.path} declares:\n  {detail}"
         )
 
     ranked = sorted(scored.items(), key=lambda item: item[1], reverse=True)
@@ -1020,37 +1008,28 @@ def measure_layout(
 
     if layout.hit_rate < min_hit_rate:
         raise BarcodeLayoutError(
-            "the sheet's indices are not where {} says they are.\n  {}\n"
-            "  hit-rate is below the {:.3f} threshold - the sample sheet and the "
-            "run are probably not a matching pair.\n  fastq: {}".format(
-                bio.path, layout.describe(), min_hit_rate, fastq
-            )
+            f"the sheet's indices are not where {bio.path} says they are.\n  {layout.describe()}\n"
+            f"  hit-rate is below the {min_hit_rate:.3f} threshold - the sample sheet and the "
+            f"run are probably not a matching pair.\n  fastq: {fastq}"
         )
 
     if orientation_runner and best_hits < discrimination_ratio * orientation_runner:
         raise BarcodeLayoutError(
-            "barcode orientation is ambiguous in {}.\n  {}\n"
+            f"barcode orientation is ambiguous in {fastq}.\n  {layout.describe()}\n"
             "  the winning orientation does not beat the runner-up by the "
-            "required {}x - refusing to guess.".format(fastq, layout.describe(), discrimination_ratio)
+            f"required {discrimination_ratio}x - refusing to guess."
         )
 
     if not declared and order_runner and best_hits < discrimination_ratio * order_runner:
         raise BarcodeLayoutError(
             "cannot tell which index this run sequenced first, and guessing "
-            "would silently swap samples.\n  {}\n"
-            "  {} of {} index pairs in this lane also appear swapped, so both slot "
-            "orders decode the same {} reads and hand each one to the other sample "
-            "of the pair.\n"
+            f"would silently swap samples.\n  {layout.describe()}\n"
+            f"  {layout.symmetric_pairs} of {len(set(pairs))} index pairs in this lane "
+            f"also appear swapped, so both slot orders decode the same {best_hits} "
+            "reads and hand each one to the other sample of the pair.\n"
             "  Resolve it with external evidence -- a negative control or an empty "
             "well should receive almost no reads under the correct order -- then set "
-            "BARCODE_SLOT_ORDER to '{}' or '{}' in the config.".format(
-                layout.describe(),
-                layout.symmetric_pairs,
-                len(set(pairs)),
-                best_hits,
-                INDEX_FIRST,
-                INDEX2_FIRST,
-            )
+            f"BARCODE_SLOT_ORDER to '{INDEX_FIRST}' or '{INDEX2_FIRST}' in the config."
         )
 
     return layout
@@ -1074,7 +1053,7 @@ def barcode_params(
     """
     if pe_offset_base not in PE_OFFSET_BASES:
         raise ValueError(
-            "PE_OFFSET_BASE must be one of {}, got {!r}".format(list(PE_OFFSET_BASES), pe_offset_base)
+            f"PE_OFFSET_BASE must be one of {list(PE_OFFSET_BASES)}, got {pe_offset_base!r}"
         )
 
     shift = 0
@@ -1094,7 +1073,7 @@ def barcode_params(
 
 def format_b_args(params: Sequence[Tuple[int, int, int]]) -> str:
     """``-b 100 10 1 -b 110 8 1``."""
-    return " ".join("-b {} {} {}".format(start, length, mismatch) for start, length, mismatch in params)
+    return " ".join(f"-b {start} {length} {mismatch}" for start, length, mismatch in params)
 
 
 # --------------------------------------------------------------------------
@@ -1131,7 +1110,7 @@ class LanePlan(NamedTuple):
         """``-p <read1 length>``, which splitBarcode needs only when ``-b`` is
         counted across the concatenated read."""
         if self.layout.is_pe and self.pe_offset_base == "concatenated":
-            return "-p {}".format(self.layout.read1_len)
+            return f"-p {self.layout.read1_len}"
         return ""
 
 
@@ -1158,13 +1137,11 @@ def lane_plan(
     bio = read_bioinfo(bioinfo_path(run_dir, label))
 
     if bio.is_pe != reads.is_pe:
+        declares = "paired-end" if bio.is_pe else "single-end"
+        holds = "a paired-end pair of" if reads.is_pe else "a single"
         raise BarcodeLayoutError(
-            "lane {}: {} declares {} but the run directory holds {} fastq(s)".format(
-                label,
-                bio.path,
-                "paired-end" if bio.is_pe else "single-end",
-                "a paired-end pair of" if reads.is_pe else "a single",
-            )
+            f"lane {label}: {bio.path} declares {declares} but the run directory "
+            f"holds {holds} fastq(s)"
         )
 
     layout = measure_layout(
@@ -1229,7 +1206,7 @@ def _cmd_barcodes(args: argparse.Namespace) -> int:
         orientation=ORIENTATION_ARGS[args.orientation],
         slot_order=args.slot_order,
     )
-    _write(args.out, "".join("{}\t{}\n".format(sample, code) for sample, code in entries))
+    _write(args.out, "".join(f"{sample}\t{code}\n" for sample, code in entries))
     return 0
 
 
@@ -1246,11 +1223,9 @@ def _cmd_params(args: argparse.Namespace) -> int:
         min_hit_rate=args.min_hit_rate,
         slot_order=args.slot_order,
     )
-    sys.stderr.write("{}: {}\n".format(plan.lane, plan.layout.describe()))
+    sys.stderr.write(f"{plan.lane}: {plan.layout.describe()}\n")
     sys.stderr.write(
-        "{}: orientation arg {}, slot order {}\n".format(
-            plan.lane, plan.orientation_arg, plan.slot_order_arg
-        )
+        f"{plan.lane}: orientation arg {plan.orientation_arg}, slot order {plan.slot_order_arg}\n"
     )
     _write(args.out, (plan.b_args + " " + plan.extra_args).strip() + "\n")
     return 0
@@ -1313,7 +1288,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         return args.func(args)
     except (SamplesheetError, BarcodeLayoutError, BioInfoError) as error:
-        sys.stderr.write("ERROR: {}\n".format(error))
+        sys.stderr.write(f"ERROR: {error}\n")
         return 1
 
 

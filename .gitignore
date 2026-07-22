@@ -4,3 +4,7 @@ gbs_prism.log
 .snakemake/
 .psij/
 .*
+
+# Python bytecode
+__pycache__/
+*.py[cod]
