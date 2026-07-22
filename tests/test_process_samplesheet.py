@@ -582,6 +582,35 @@ class TestMeasureLayout(FixtureCase):
         self.assertIsNone(layout.offset2)
         self.assertEqual(pss.format_b_args(pss.barcode_params(layout)), "-b 100 10 1")
 
+    def test_single_index_lane_ignores_a_declared_slot_order(self):
+        """BARCODE_SLOT_ORDER is per run, so a single-index lane must survive it.
+
+        With one index there is no second slot to order. Honouring the
+        declaration here would put the sole index in slot 2 and emit a
+        zero-length first -b.
+        """
+        rows = [(s, i, "") for s, i, _ in T1_L01]
+        path = os.path.join(self.tmp, "single_declared.fq.gz")
+        write_fastq(path, rows, insert_len=100, block2_len=10)
+        bio = self.bio(read1_len=100, barcode_len=10, dual_len=10)
+        layout = self.measure(path, rows, bio, slot_order=pss.INDEX2_FIRST)
+        self.assertEqual(layout.slot_order, pss.INDEX_FIRST)
+        self.assertFalse(layout.slot_order_declared)
+        self.assertEqual(pss.format_b_args(pss.barcode_params(layout)), "-b 100 10 1")
+
+    def test_mixed_index_lengths_are_refused_by_name(self):
+        """One -b layout covers a whole lane, so mixed lengths cannot work.
+
+        Caught here rather than surfacing later as an unexplained low hit-rate.
+        """
+        rows = [("A", "GAACTGAGCG", "AGCGCTAG"), ("B", "AGGTCAG", "GATATCGA")]
+        path = os.path.join(self.tmp, "mixed.fq.gz")
+        write_fastq(path, [rows[0]], insert_len=100, block2_len=10)
+        bio = self.bio(read1_len=100, barcode_len=10, dual_len=10)
+        with self.assertRaises(pss.BarcodeLayoutError) as caught:
+            self.measure(path, rows, bio)
+        self.assertIn("mixes index lengths", str(caught.exception))
+
     def test_raises_when_no_barcodes_match(self):
         """A mismatched sheet/run pair must abort, not emit a plausible offset."""
         path = os.path.join(self.tmp, "scrambled.fq.gz")

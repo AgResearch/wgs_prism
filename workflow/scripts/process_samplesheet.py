@@ -599,7 +599,10 @@ def _bioinfo_int(values: Dict[str, str], field: str, required: bool = True) -> i
             try:
                 return int(text)
             except ValueError:
-                raise BioInfoError("{} is not an integer: {!r}".format(field, text))
+                # from None: the ValueError adds nothing the message lacks.
+                raise BioInfoError(
+                    "{} is not an integer: {!r}".format(field, text)
+                ) from None
     if required:
         raise BioInfoError(
             "no {} field; looked for {}".format(field, list(_BIOINFO_KEYS[field]))
@@ -906,8 +909,13 @@ def measure_layout(
             "slot_order must be {} or {!r}, got {!r}".format(list(SLOT_ORDERS), AUTO, slot_order)
         )
 
-    index_len = len(pairs[0][0])
-    index2_len = len(pairs[0][1])
+    lengths = {(len(index), len(index2)) for index, index2 in pairs}
+    if len(lengths) > 1:
+        raise BarcodeLayoutError(
+            "lane mixes index lengths {}; splitBarcode needs one -b layout for "
+            "the whole lane.\n  fastq: {}".format(sorted(lengths), fastq)
+        )
+    index_len, index2_len = lengths.pop()
 
     lines = _sequence_lines(fastq, n_reads)
     # Use only the modal read length: a handful of trimmed or truncated reads
@@ -919,12 +927,20 @@ def measure_layout(
     usable = [line for line in lines if len(line) == read_len]
     n_scanned = len(usable)
 
-    # Candidate orders: with a single index there is only one slot to fill, and
-    # with equal-length indices the geometry is identical either way -- but the
-    # *content* differs, which is the whole point, so both are still scored.
-    orders = SLOT_ORDERS if index2_len else (INDEX_FIRST,)
-    if slot_order != AUTO:
+    # Candidate orders. With equal-length indices the geometry is identical
+    # either way, but the barcode *content* differs, so both are still scored.
+    # A single-index lane has one slot to fill, so slot order cannot apply: a
+    # declared order is ignored rather than refused, because BARCODE_SLOT_ORDER
+    # is set per run and a run may hold both single- and dual-index lanes.
+    # Without this, index2-first on a single-index lane maps the sole index to
+    # slot 2 and emits a zero-length -b.
+    declared = slot_order != AUTO and bool(index2_len)
+    if not index2_len:
+        orders = (INDEX_FIRST,)
+    elif declared:
         orders = (slot_order,)
+    else:
+        orders = SLOT_ORDERS
 
     scored = {}  # type: Dict[Tuple[Tuple[str, str], str], int]
     geometry = {}  # type: Dict[str, Tuple[int, Optional[int]]]
@@ -992,7 +1008,7 @@ def measure_layout(
         index2_len=index2_len,
         orientation=best_orientation,
         slot_order=best_order,
-        slot_order_declared=slot_order != AUTO,
+        slot_order_declared=declared,
         hit_rate=best_hits / float(n_scanned),
         runner_up_rate=runner_hits / float(n_scanned),
         n_scanned=n_scanned,
@@ -1018,7 +1034,7 @@ def measure_layout(
             "required {}x - refusing to guess.".format(fastq, layout.describe(), discrimination_ratio)
         )
 
-    if slot_order == AUTO and order_runner and best_hits < discrimination_ratio * order_runner:
+    if not declared and order_runner and best_hits < discrimination_ratio * order_runner:
         raise BarcodeLayoutError(
             "cannot tell which index this run sequenced first, and guessing "
             "would silently swap samples.\n  {}\n"
