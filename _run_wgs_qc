@@ -1,10 +1,18 @@
-#!/bin/sh
-# Interactive script to run wgs_prism2 on a WGS Illumina Sequencing Run.
+#!/usr/bin/env bash
+# Interactive script to run wgs_prism on a WGS Illumina Sequencing Run.
 
 module purge && module load Miniforge3/24.9.0-0
 module load snakemake/7.32.3-foss-2023a-Python-3.11.6
-WGS_PRISM_BIN=/projects/2023_sequence_production/wgs_prism
-cd $WGS_PRISM_BIN
+
+# Resolve from this script's own location, not from $PWD and not from a
+# hardcoded path: a checkout must run its own code. This previously read
+# WGS_PRISM_BIN=/projects/2023_sequence_production/wgs_prism, so edits made in
+# any other checkout appeared to have no effect. Snakemake is invoked below
+# with relative paths (config/, workflow/), so the pipeline directory is also
+# the working directory.
+WGS_PRISM_BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export WGS_PRISM_BIN
+cd "$WGS_PRISM_BIN" || exit 1
 
 ILLUMINA_PROJECT=2026_sequence_production_a
 SMK_CONFIG_DIR=config/slurm/eRI
@@ -225,16 +233,25 @@ run_sequencer_qc() {
 
   Ref: https://knowledge.illumina.com/software/on-premises-software/software-on-premises-software-reference_material-list/000007337
   "
-   echo "Press Enter to review sample sheet in vim."
-   read_answer_with_default ""
+   # The editor only makes sense when there is a terminal to open it on. Under
+   # -r (autostart_wgs_qc) there is not: this block used to run unconditionally,
+   # so the unattended path blocked here forever.
+   if [ "$INTERACTIVE" = yes ]; then
+      echo "Press Enter to review sample sheet in ${EDITOR:-vim}."
+      read_answer_with_default ""
 
-   vim $OUTPUT_ROOT/SampleSheet.csv
+      ${EDITOR:-vim} "$OUTPUT_ROOT/SampleSheet.csv"
 
-   echo "Proceed with updated SampleSheet.csv? (y/n; default y):"
-   read_answer_with_default y
-   if [ $answer != "y" ]; then
-      echo "OK quitting..."
-      exit 1
+      echo "Proceed with updated SampleSheet.csv? (y/n; default y):"
+      read_answer_with_default y
+      if [ "$answer" != "y" ]; then
+         echo "OK quitting..."
+         exit 1
+      fi
+   else
+      echo "Non-interactive mode (-r): using $OUTPUT_ROOT/SampleSheet.csv exactly as copied."
+      echo "No editor is opened. Prepare that file first if this batch needs"
+      echo "OverrideCycles settings or rows removed."
    fi
 
    ###### ensure output folder does not exist

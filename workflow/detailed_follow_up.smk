@@ -13,7 +13,14 @@ import os
 configfile: "config/pipeline_config.yaml"
 
 
-# eg. /dataset/2024_illumina_sequencing_d/active/240621_A01439_0277_BHVHYHDMXY
+for _required in ("RUN", "IN_ROOT", "OUT_ROOT"):
+    # Same guard as wgs_prism.smk: pipeline_config.yaml ships these empty so a
+    # forgotten --config cannot silently resolve against another run.
+    if not config.get(_required):
+        raise WorkflowError(f"{_required} must be set, e.g. --config {_required}=...")
+
+
+# eg. /projects/2026_sequence_production_a/run_data/240621_A01439_0277_BHVHYHDMXY
 RUN = config["RUN"]
 run_in_path = os.path.join(config["IN_ROOT"], config["RUN"])
 

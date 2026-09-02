@@ -1,14 +1,36 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# 2026 Benjamin J Perry
+# MIT License
+# Copyright (c) 2026 Benjamin J Perry
+#
+# Launcher for the Illumina bcl-convert demultiplexing and QC pipeline,
+# mirroring mgi_prism/run_mgi_qc: gives the operator a short, memorable name to
+# type and announces the pipeline directory before anything happens.
+#
+# The directory is resolved from this script's own location, NOT from $PWD and
+# NOT from a hardcoded path -- _run_wgs_qc used to cd to a compiled-in
+# /projects/2023_sequence_production/wgs_prism, so edits made in any other
+# checkout appeared to have no effect.
+#
+# Everything interactive lives in _run_wgs_qc; options pass straight through
+# (see `./run_wgs_qc -h`).
 
-function get_pipeline() {
-   
-   export WGS_PRISM_BIN=$(pwd) # TODO Updated on system configuration
-   cd $WGS_PRISM_BIN
-   echo "CWD: $WGS_PRISM_BIN"
-   echo "running wgs qc pipeline (press enter to continue)"
-   read answer
-   exec ./_run_wgs_qc -i 
+get_pipeline() {
+   WGS_PRISM_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+   echo "CWD: $WGS_PRISM_HERE"
+   echo "Running the Illumina sequence production and QC pipeline (press Enter to continue)"
+   read -r _
+
+   # Bare `./run_wgs_qc` is the interactive path, so -i is injected only when the
+   # operator passed nothing. Injecting it unconditionally would combine with a
+   # caller's flags -- `./run_wgs_qc -r RUN` would arrive as `-i -r RUN`, which
+   # sets INTERACTIVE=yes as well as ARGRUN and opens the editor despite -r.
+   if [ "$#" -eq 0 ]; then
+      exec "$WGS_PRISM_HERE/_run_wgs_qc" -i
+   else
+      exec "$WGS_PRISM_HERE/_run_wgs_qc" "$@"
+   fi
 }
 
-get_pipeline 
+get_pipeline "$@"

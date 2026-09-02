@@ -13,6 +13,13 @@ import os
 import pandas as pd
 
 # config dictionary values to be defined on running snakemake with --config flag
+for _required in ("RUN", "IN_ROOT", "OUT_ROOT"):
+    # Empty is refused as well as missing: pipeline_config.yaml ships these as
+    # "", so `in config` would let the default through. A real-looking default
+    # would let a forgotten --config silently read, or write over, another run.
+    if not config.get(_required):
+        raise WorkflowError(f"{_required} must be set, e.g. --config {_required}=...")
+
 
 rule targets:
     input:
@@ -47,9 +54,16 @@ checkpoint run_bclconvert:
     benchmark:
         os.path.join(config["OUT_ROOT"], "benchmarks", "run_bclconvert.txt")
     threads: 24
+    # No retry is possible: the guard below refuses to write over existing
+    # output, so every restart fails the same way. Without this, the profile's
+    # restart-times spends all 5 attempts on a demux that cannot succeed, and
+    # attempt-scaled resources never get a chance to apply. One attempt only,
+    # sized for the worst case, then a clear message telling the operator what
+    # to remove.
+    retries: 0
     resources:
-        mem_gb=lambda wildcards, attempt: 96 + ((attempt - 1) * 24),
-        time=lambda wildcards, attempt: 180 + ((attempt - 1) * 480),
+        mem_gb=96,
+        time=600,
         partition="compute,hugemem,vgpu",
     shell:
         """
@@ -113,6 +127,10 @@ rule run_fastqc:
     benchmark:
         os.path.join(config["OUT_ROOT"], "benchmarks", "run_fastqc.{sample}.txt")
     threads: 12
+    # Unlike the demux, a repeat run of this rule can succeed: it is idempotent
+    # and its usual failures are transient (node or filesystem), so the
+    # attempt-scaled resources below do real work.
+    retries: 3
     resources:
         mem_gb=lambda wildcards, attempt: 16 + ((attempt - 1) * 32),
         time=lambda wildcards, attempt: 180 + ((attempt - 1) * 720),
@@ -173,6 +191,10 @@ rule run_multiqc:
         "envs/multiqc-1.17.yaml"
     benchmark:
         os.path.join(config["OUT_ROOT"], "benchmarks", "run_multiqc.txt")
+    # A localrule on the submit host, and the last step after hours of work.
+    # One retry, because a MultiQC failure is usually deterministic and a
+    # second identical attempt rarely helps.
+    retries: 1
     threads: 2
     params:
         multiqc_config=config["multiqc_config"],
