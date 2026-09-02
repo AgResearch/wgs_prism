@@ -140,7 +140,9 @@ reason. The pipeline does not give `--force` to `bcl-convert`.
 **A retry of the demultiplex cannot succeed while that output is there.** The rule therefore
 gives `retries: 0`, and it makes one attempt only. Its memory and its time limit are single
 values that are large enough for the worst case, and they do not increase at each attempt.
-Before this, the pipeline made five identical attempts that each failed in the same way.
+The profile set `restart-times: 5` when this was written, and the pipeline made five identical
+attempts that each failed in the same way. The profile now sets no `restart-times`, so the value
+`0` matches the default. Keep it: it records one attempt as a decision, and not as an omission.
 
 **An ordinary failure does not block the next attempt.** Snakemake removes the output of a rule
 that fails, and `bclconvert` is a declared output directory. A demultiplex that stops on a bad
