@@ -124,7 +124,7 @@ References:
 
 | Message | Meaning | Action |
 |---|---|---|
-| `sorry can't find the sample-sheet for this run` | The run directory has no `SampleSheet.csv` and no `*.csv` file whose name occurs in the run name. | Copy the sheet into the run directory. The launcher stops. |
+| `Sorry, can't find the sample sheet for this run` | The run directory has no `SampleSheet.csv` and no `*.csv` file whose name occurs in the run name. | Copy the sheet into the run directory. The launcher stops. |
 | `RTAComplete.txt does not exist` | The run is still in progress, or still in transfer. | Wait for the transfer to end. The default answer is no. |
 | `Warning: <directory> already exists, use anyway ?` | The output directory holds the results of an earlier run. | Snakemake keeps the complete results and makes the remainder. Use this behaviour to continue a run that failed. |
 | `<OUT_ROOT>/SampleSheet/bclconvert already exists` | The run is demultiplexed. | See "Re-demultiplexing" below. The launcher submits nothing. |
@@ -169,6 +169,7 @@ The pipeline writes these files into the output directory:
 | `SampleSheet.csv` | The copy of the sample sheet that defines this batch. |
 | `logs/wgs_prism.log` | The full output of snakemake. |
 | `logs/run_bclconvert.log`, `logs/run_fastqc.<fastq>.log` | The log of each step. |
+| `logs/bclconvert_Logs/` | A copy of the `bcl-convert` logs. It is outside the output directory, so it survives a failure that removes `SampleSheet/bclconvert/`. |
 | `logs/slurm/` | The output of each SLURM job. |
 | `benchmarks/` | The run time and the memory of each job. |
 
@@ -183,21 +184,21 @@ The file `config/pipeline_config.yaml` holds the reference paths.
 | Key | Default | Function |
 |---|---|---|
 | `multiqc_config` | `resources/multiQC_config.yaml` | The MultiQC configuration. It sets the title, the logo and the sequence of the sections. |
-| `kraken2_index` | `/datasets/2024-kraken2-indices/k2_nt_20231129` | The Kraken2 index. `detailed_follow_up.smk` uses it only. |
-| `human_genome_index` | `/projects/2023_sequence_production/wgs_prism/resources/GRCh38/GRCh38` | The bowtie2 index of GRCh38. `detailed_follow_up.smk` uses it only. |
 
-**The keys `RUN`, `IN_ROOT` and `OUT_ROOT` in that file are empty.** Each workflow refuses to
+That is the only reference key left. The `kraken2_index` and `human_genome_index` keys went with
+`detailed_follow_up.smk`.
+
+**The keys `RUN`, `IN_ROOT` and `OUT_ROOT` in that file are empty.** The workflow refuses to
 start when one of them has no value. The launcher gives a value for each of them with `--config`.
 Keep them empty: a value that looks real lets a forgotten `--config` key read, or write over, a
 different run.
 
-The `kraken2_index` path is a bind-mount path in the container, and not a path on the host. The
-profile makes these paths available. See "Environment" below.
+Reference paths under `/datasets` or `/projects` are bind-mount paths inside the container, and
+not paths on the host. The profile makes them resolve. See "Environment" below.
 
 `resources/multiQC_config.yaml` gives `TBD` for the subtitle and for the sequencing platform.
-Change these two values when you want them in the report. Its `module_order` also lists bbduk,
-SILVA, kraken and GRCh38. `wgs_prism.smk` makes no input for those modules, and MultiQC omits
-those sections without a message. `detailed_follow_up.smk` makes them.
+Change these two values when you want them in the report. Its `module_order` lists `bclconvert`
+and `fastqc` only, which is what `wgs_prism.smk` produces.
 
 ## Unattended operation
 
@@ -221,9 +222,8 @@ WorkflowError in file workflow/wgs_prism.smk, line 21:
 RUN must be set, e.g. --config RUN=...
 ```
 
-`detailed_follow_up.smk` makes the same check. Earlier versions held a value for each key in
-`config/pipeline_config.yaml`, and a forgotten key then resolved against that value without a
-message.
+Earlier versions held a value for each key in `config/pipeline_config.yaml`, and a forgotten key
+then resolved against that value without a message.
 
 **`snakemake -n` gives an incomplete answer on a new run.** The rule `run_bclconvert` is a
 checkpoint. Snakemake finds the samples only after that rule writes its output. A dry run on a
@@ -254,10 +254,11 @@ no result. `mgi_prism` and `gtseq_prism` use the same method.
 **The editor is inside `if [ "$INTERACTIVE" = yes ]`.** The flag `-r` gives the sheet to
 `bcl-convert` exactly as copied, and it opens no editor.
 
-`autostart_wgs_qc` polls for `RTAComplete.txt` and then calls `_run_wgs_qc -r $RUN`. **It does not
-operate at present.** Its `get_run_folder` probes `/dataset/2024_illumina_sequencing_d/active/`
-three times, and that path is retired. Correct that path before you use it. Its second condition
-is now correct: the editor no longer stops the unattended path.
+There is no unattended poller in the repository. `autostart_wgs_qc` polled for `RTAComplete.txt`
+and then called `_run_wgs_qc -r $RUN`, but it probed the retired
+`/dataset/2024_illumina_sequencing_d/active/` tree and was removed. The `-r` path it relied on is
+still there and still works: `-r` opens no editor, so `_run_wgs_qc -r $RUN` is safe to drive from
+`cron` or from a poller of your own.
 
 ## Workflow structure
 
@@ -276,14 +277,14 @@ apply to it.
 Each rule gives its own `retries` value. This keyword is available in snakemake 7.32.3, and it
 replaces the `restart-times` of the profile for that rule.
 
+Every rule now sets `retries`, and the profile no longer sets `restart-times` at all. A new rule
+that gives no `retries` value therefore makes one attempt only. Give the value explicitly.
+
 | Rule | `retries` | Reason |
 |---|---|---|
 | `run_bclconvert` | 0 | A second attempt finds the output of the first one and stops in the same way. One attempt only, with a memory and a time limit that are large enough for the worst case. |
 | `run_fastqc` | 3 | This rule gives the same result at each attempt, and its failures are usually transient. The memory and the time limit increase at each attempt. |
 | `run_multiqc` | 1 | The last step, after some hours of work. A failure here is usually permanent, and one more attempt is sufficient. |
-
-The `restart-times: 5` of the profile now applies to `detailed_follow_up.smk` only, because the
-rules of that file give no `retries` value.
 
 `bcl-convert` is not a conda environment. The rule adds `/agr/persist/apps/src/b/BCL-Convert` to
 `PATH`. FastQC and MultiQC come from `workflow/envs/`.
@@ -294,6 +295,17 @@ Snakemake makes `bclconvert/` and `bclconvert/Logs/` before the rule runs, becau
 declares them as outputs. The rule therefore runs `rmdir` on these two empty directories first.
 The `rmdir` fails when the directories hold real output, the directory survives, and the rule
 stops with a message. Keep this sequence when you change the rule.
+
+**The `rmdir` and the absent `--force` are one mechanism.** `bcl-convert` refuses a destination
+that is already there, and the rule uses that refusal as its guard. Remove the `rmdir` and the
+rule fails on every new run, because snakemake made the directory before the rule started. Add
+`--force` and the guard is gone. Change both or change neither.
+
+The rule keeps the exit status of `bcl-convert` in `bcl_status` instead of letting `set -e` stop
+the shell, and it then copies `bclconvert/Logs/*.log` to `$OUT_ROOT/logs/bclconvert_Logs/` and
+appends them to the rule log. Snakemake removes the output directory when the rule fails, and the
+logs of the failure are inside it. This copy is the only record that remains, so keep it after
+the `bcl-convert` line and keep the `|| bcl_status=$?` that lets it run.
 
 ## Environment
 
@@ -307,7 +319,6 @@ stops with a message. Keep this sequence when you change the rule.
   `/mnt/gpfs/persist/datasets` to `/datasets`, `/mnt/gpfs/persist/projects` to `/projects`,
   `/mnt/gpfs/scratch/projects` to `/scratch`, and `/mnt/gpfs/persist/legacy_datasets` to
   `/dataset`.
-* `config/slurm/legacy/` is the profile of the retired HPC. Nothing uses it.
 * The files `workflow/envs/*.yaml` are `conda env export` dumps, and some hold a `prefix:` line of
   one machine. `workflow/envs/README.md` gives the preferred approach: central conda-store
   environments. Treat these files as a record and not as portable recipes.
@@ -321,38 +332,27 @@ The sequencing project changes each year. **One line changes:** `ILLUMINA_PROJEC
 Confirm `account:` in `config/slurm/eRI/config.yaml` at the same time. It does not follow
 `ILLUMINA_PROJECT`, and the two names are not the same.
 
-## detailed_follow_up.smk
+## Removed in the cleanup
 
-`workflow/detailed_follow_up.smk` is a deeper QC workflow: seqtk downsample, bbduk trim, bowtie2
-against SILVA 138.1, kraken2 against nt, bowtie2 against GRCh38, and its own MultiQC report. **No
-entry point calls it.** Its target rule is `default`.
+The commit that merged PR #7 removed a large body of code that no entry point reached. It is in
+the history, and `git show d3d3dac:<path>` recovers any of it. Do not re-add a file from this
+list without a reason.
 
-Three conditions apply before you use it:
+| Removed | Why |
+|---|---|
+| `workflow/detailed_follow_up.smk` | A deeper QC workflow: seqtk downsample, bbduk trim, bowtie2 against SILVA 138.1, kraken2 against nt, bowtie2 against GRCh38. No entry point called it. Its two `bowtie2_SILVA_alignment_*` rules were damaged: the fragments `"-U ..."`, `"1> /dev/null"` and `"2> {output}"` sat at column 0, outside the `shell:` expression. Its GRCh38 index is in `.gitignore`, so a new clone could not run it. |
+| `autostart_wgs_qc` | Polled a retired `/dataset/` path. See "Layers". |
+| `config/slurm/legacy/` | The profile of the retired HPC. |
+| `workflow/scripts/data_prism.py`, `kmer_prism.py`, `kmer_plots.r`, `reconcile_contaminants.py`, `add_sample_sheet_header.py`, `samplesheet_to_fastqname.py` | Python 2 code from the `gbs_prism` pipeline, holding paths of the retired `/dataset/gseq_processing/` tree. No file called them. |
+| `resources/sample_sheet_header.csv`, `resources/adapters.fa` | Read by the removed scripts and by `detailed_follow_up.smk` only. |
+| `workflow/envs/bbmap-39.01.yaml`, `bioconductor.yaml`, `biopython.yaml`, `bowtie2-2.5.1.yaml`, `kraken2-2.1.3.yaml`, `seqtk-1.4.yaml` | The environments of the removed workflow. `fastqc-0.12.1.yaml` and `multiqc-1.17.yaml` remain. |
 
-* **Run it after `wgs_prism.smk`.** It finds the samples with `glob_wildcards()` when snakemake
-  reads the file. An empty `bclconvert/` directory thus gives an empty DAG and no error.
-* **The two `bowtie2_SILVA_alignment_*` rules are damaged.** The fragments `"-U ..."`,
-  `"1> /dev/null"` and `"2> {output}"` are at column 0. They are outside the `shell:` expression,
-  and they operate as statements of the module. The command that runs has no input and no output
-  redirect. Correct these rules first.
-* **The SILVA index is a literal** at `/datasets/2024-silva-rrna/SILVA138.1`. The file carries a
-  `# TODO parameterize in config` comment. The directory `resources/GRCh38/` is in `.gitignore`,
-  and a new clone therefore has no human genome index.
+`workflow/scripts/` now holds `runinfo_to_machinetype.py` and `status.py` only, and both are
+called. Everything in this repository is now reachable from `run_wgs_qc`.
 
-**`OUT_ROOT` means two different things in the two workflow files.** `wgs_prism.smk` uses
-`config["OUT_ROOT"]` and adds `"SampleSheet"` at each use. `detailed_follow_up.smk` sets a module
-variable `OUT_ROOT = os.path.join(config["OUT_ROOT"], "SampleSheet")`. The paths agree, but a path
-expression that moves between the two files gains or loses the `SampleSheet` part. Also,
-`OUT_ROOT/SampleSheet.csv` is the sample sheet **file**, and `OUT_ROOT/SampleSheet/` is the output
-**directory**.
-
-## Inherited code
-
-Six files in `workflow/scripts/` come from the `gbs_prism` pipeline: `data_prism.py`,
-`kmer_prism.py`, `kmer_plots.r`, `reconcile_contaminants.py`, `add_sample_sheet_header.py` and
-`samplesheet_to_fastqname.py`. The file `resources/sample_sheet_header.csv` is with them. **No
-file in this repository calls them.** They are Python 2 code, and they hold paths of the retired
-`/dataset/gseq_processing/` tree. Do not read them to understand the pipeline.
+**Note `OUT_ROOT` still names two things.** `OUT_ROOT/SampleSheet.csv` is the sample sheet
+**file**, and `OUT_ROOT/SampleSheet/` is the output **directory**. `wgs_prism.smk` uses
+`config["OUT_ROOT"]` and adds `"SampleSheet"` at each use site.
 
 There is no test suite, no CI and no linter configuration. This repository is operational
 infrastructure.
