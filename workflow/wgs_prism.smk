@@ -31,6 +31,17 @@ rule targets:
         ),
 
 
+# Lives outside the bclconvert output dir so it survives Snakemake deleting
+# that directory() output on job failure. Note bclconvert_out itself is only
+# created as a side effect of preparing the nested reports/fastq_complete
+# outputs below (Snakemake pre-creates a directory() output's parent, not the
+# directory itself), so the dir already exists (empty) by the time bcl-convert
+# runs. Rather than passing --force to tolerate that, the shell below rmdirs
+# the empty shells, which turns bcl-convert's own refusal to overwrite into
+# the re-demultiplex guard.
+bclconvert_logs_persist = os.path.join(config["OUT_ROOT"], "logs", "bclconvert_Logs")
+
+
 checkpoint run_bclconvert:
     input:
         run_in=os.path.join(config["IN_ROOT"], config["RUN"]),
@@ -69,17 +80,19 @@ checkpoint run_bclconvert:
         """
         export PATH=/agr/persist/apps/src/b/BCL-Convert:$PATH
 
-        # report version 
-        echo "bcl-convert version in use:"
-        bcl-convert -V 
-
-        echo
+        echo "bcl-convert version in use:" > {log}
+        bcl-convert -V >> {log} 2>&1
+        echo >> {log}
 
         # bcl-convert refuses to write into a destination that already exists, and we
         # rely on that so a previous demultiplex is never silently overwritten.
         # Snakemake creates bclconvert/ and bclconvert/Logs/ from the declared outputs
         # before this runs, so clear those empty shells first. If real output is
         # present the rmdir fails and the directory survives the check below.
+        #
+        # This rmdir and the deliberate absence of --force below are a matched
+        # pair: drop either one alone and bcl-convert fails on every fresh run,
+        # not just on a re-demultiplex.
         rmdir {output.bclconvert_out}/Logs {output.bclconvert_out} 2>/dev/null || true
 
         if [ -d {output.bclconvert_out} ]; then
@@ -87,11 +100,26 @@ checkpoint run_bclconvert:
             exit 1
         fi
 
-        bcl-convert --bcl-input-directory {input.run_in} --sample-sheet {input.sample_sheet} --output-directory {output.bclconvert_out} > {log} 2>&1
+        # Capture exit status ourselves (Snakemake's `set -e` would otherwise
+        # abort before the log-rescue step below runs on failure).
+        bcl_status=0
+        bcl-convert \
+            --bcl-input-directory {input.run_in} \
+            --sample-sheet {input.sample_sheet} \
+            --output-directory {output.bclconvert_out} >> {log} 2>&1 || bcl_status=$?
 
-        # Need to scrape the logs into the log file for the failure case as snakemake cleans up the directory with the logs
-        cat {output.bclconvert_out}/Logs/*.log > {log}
-        
+        # Rescue bcl-convert's Logs/ before Snakemake deletes the output dir on
+        # failure; `ls` guard avoids tripping `set -e` if Logs/ never appeared.
+        if ls {output.bclconvert_out}/Logs/*.log >/dev/null 2>&1; then
+            mkdir -p {bclconvert_logs_persist}
+            cp -f {output.bclconvert_out}/Logs/*.log {bclconvert_logs_persist}/
+
+            echo >> {log}
+            echo "===== bcl-convert Logs/ (preserved in {bclconvert_logs_persist}) =====" >> {log}
+            cat {output.bclconvert_out}/Logs/*.log >> {log}
+        fi
+
+        exit $bcl_status
         """
 
 
