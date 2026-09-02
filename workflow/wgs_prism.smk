@@ -61,7 +61,19 @@ checkpoint run_bclconvert:
 
         echo
 
-        bcl-convert --force --bcl-input-directory {input.run_in} --sample-sheet {input.sample_sheet} --output-directory {output.bclconvert_out} > {log} 2>&1
+        # bcl-convert refuses to write into a destination that already exists, and we
+        # rely on that so a previous demultiplex is never silently overwritten.
+        # Snakemake creates bclconvert/ and bclconvert/Logs/ from the declared outputs
+        # before this runs, so clear those empty shells first. If real output is
+        # present the rmdir fails and the directory survives the check below.
+        rmdir {output.bclconvert_out}/Logs {output.bclconvert_out} 2>/dev/null || true
+
+        if [ -d {output.bclconvert_out} ]; then
+            echo "error: {output.bclconvert_out} already contains demultiplexed output; refusing to overwrite. Remove it if you intend to re-demultiplex." >&2
+            exit 1
+        fi
+
+        bcl-convert --bcl-input-directory {input.run_in} --sample-sheet {input.sample_sheet} --output-directory {output.bclconvert_out} > {log} 2>&1
 
         # Need to scrape the logs into the log file for the failure case as snakemake cleans up the directory with the logs
         cat {output.bclconvert_out}/Logs/*.log > {log}
