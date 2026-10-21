@@ -4,3 +4,4 @@ gbs_prism.log
 .snakemake/
 .psij/
 .*
+CLAUDE.md
