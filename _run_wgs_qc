@@ -121,15 +121,30 @@ read_answer_with_default() {
 
 
 get_opts() {
+   # INTERACTIVE pairs with the -i that run_wgs_qc injects for the bare-launch
+   # case. The two are one mechanism: drop -i here and `./run_wgs_qc` dies on
+   # "Invalid option: -i"; keep -i but never set INTERACTIVE and every prompt
+   # below silently takes the non-interactive branch. Change both or neither.
+   INTERACTIVE=no
    ARGRUN=""
    help_text="
 This script is called by run_wgs_qc.
+
+  -i        interactive: prompt for the run name and open the copied
+            SampleSheet.csv in \$EDITOR (default vim) before demultiplexing.
+            run_wgs_qc injects this when launched with no arguments.
+  -r RUN    non-interactive: use RUN as the run name and take the sample
+            sheet exactly as copied. No editor is opened.
+  -h        this help.
 "
-   while getopts ":hr:" opt; do
+   while getopts ":hir:" opt; do
       case $opt in
       h)
-         echo -e $help_text
+         echo -e "$help_text"
          exit 0
+         ;;
+      i)
+         INTERACTIVE=yes
          ;;
       r)
          ARGRUN=$OPTARG
